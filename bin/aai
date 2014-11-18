@@ -1,0 +1,131 @@
+#!/srv/sw/python/2.7.4/bin/python
+
+###############################################################################
+#
+# aai - main program entry point. See aai/main.py for internals.
+#
+###############################################################################
+#                                                                             #
+#    This program is free software: you can redistribute it and/or modify     #
+#    it under the terms of the GNU General Public License as published by     #
+#    the Free Software Foundation, either version 3 of the License, or        #
+#    (at your option) any later version.                                      #
+#                                                                             #
+#    This program is distributed in the hope that it will be useful,          #
+#    but WITHOUT ANY WARRANTY; without even the implied warranty of           #
+#    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            #
+#    GNU General Public License for more details.                             #
+#                                                                             #
+#    You should have received a copy of the GNU General Public License        #
+#    along with this program. If not, see <http://www.gnu.org/licenses/>.     #
+#                                                                             #
+###############################################################################
+
+__author__ = "Donovan Parks"
+__copyright__ = "Copyright 2014"
+__credits__ = ["Donovan Parks"]
+__license__ = "GPL3"
+__maintainer__ = "Donovan Parks"
+__email__ = "donovan.parks@gmail.com"
+__status__ = "Development"
+__version__ = "0.0.1"
+
+import sys
+
+import argparse
+
+from aai.main import OptionsParser
+
+def printHelp():
+    print ''
+    print '                ...::: AAI v' + __version__ + ' :::...'''
+    print '''\
+
+  Calculate amino acid identity (AAI) between orthologous genes.
+    call_genes  -> Identify genes within genomes
+    ortholog    -> Identify orthologs within genomes
+    calculate   -> Calculate AAI between orthologs
+    
+    aai_wf      -> Runs call_genes, ortholog, and calculate
+    
+    core        -> [Not implemented] Identify genes contained in all genomes
+    dispensable -> [Not implemented] Identify genes contained in more than one, but not all genomes
+    unique      -> [Not implemented] Identify genes present in a single genome
+    
+  Use: aai <command> -h for command specific help
+    '''
+
+if __name__ == '__main__':
+    # initialize the options parser
+    parser = argparse.ArgumentParser(add_help=False)
+    subparsers = parser.add_subparsers(help="--", dest='subparser_name')
+    
+    # identify genes within genomes
+    call_genes_parser = subparsers.add_parser('call_genes',
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        description='Identify genes within genomes.')
+    call_genes_parser.add_argument('genome_dir', help="directory containing genomes")
+    call_genes_parser.add_argument('output_dir', help="output directory")
+    call_genes_parser.add_argument('-g', '--genes', dest='bCalledGenes', action="store_true", default=False,  help="files in genome directory contain genes as amino acids")
+    call_genes_parser.add_argument('-x', '--extension', default='fna', help="extension of genomes (other files in folder are ignored)")
+    call_genes_parser.add_argument('-t', '--threads', help='number of threads', type=int, default = 16)
+    
+    # identify orthologs within genomes
+    ortholog_parser = subparsers.add_parser('ortholog',
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        description='Identify orthologs within genomes.')
+    ortholog_parser.add_argument('output_dir', help="output directory (same specific with 'call_genes')")
+    ortholog_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
+    ortholog_parser.add_argument('-t', '--threads', help='number of threads', type=int, default = 16)
+    
+    # calculate AAI between orthologs
+    calculate_parser = subparsers.add_parser('calculate',
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        description='Calculate AAI between orthologs.')
+    calculate_parser.add_argument('output_dir', help="output directory (same specific with 'call_genes')")
+    calculate_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
+    calculate_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining othology")
+    calculate_parser.add_argument('-t', '--threads', help='number of threads', type=int, default = 16)
+    
+    # runs call_genes, ortholog, and calculate
+    aai_wf_parser = subparsers.add_parser('aai_wf',
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        description='Runs call_genes, ortholog, and calculate.')
+    aai_wf_parser.add_argument('genome_dir', help="directory containing genomes")
+    aai_wf_parser.add_argument('output_dir', help="output directory")
+    aai_wf_parser.add_argument('-g', '--genes', dest='bCalledGenes', action="store_true", default=False,  help="files in genome directory contain genes as amino acids")
+    aai_wf_parser.add_argument('-x', '--extension', default='fna', help="extension of genomes (other files in folder are ignored)")
+    aai_wf_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
+    aai_wf_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
+    aai_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining othology")
+    aai_wf_parser.add_argument('-t', '--threads', help='number of threads', type=int, default = 16)
+  
+    # get and check options
+    args = None
+    if(len(sys.argv) == 1 or sys.argv[1] == '-h' or sys.argv == '--help'):
+        printHelp()
+        sys.exit(0)
+    else:
+        args = parser.parse_args()
+
+    # do what we came here to do
+    try:
+        parser = OptionsParser()
+        if(False):
+            #import pstats
+            #p = pstats.Stats('prof')
+            #p.sort_stats('cumulative').print_stats(10)
+            #p.sort_stats('time').print_stats(10)
+            import cProfile
+            cProfile.run('parser.parseOptions(args)', 'prof')
+        elif False:
+            import pdb
+            pdb.run(parser.parseOptions(args))
+        else:
+            parser.parseOptions(args)
+    except SystemExit:
+        print "\n  Controlled exit resulting from an unrecoverable error or warning."
+    except:
+        print "\nUnexpected error:", sys.exc_info()[0]
+        raise
+
