@@ -5,4 +5,4 @@ Calculates the amino acid identity (AAI) between prokaryotic genomes based on pu
 
 KT Konstantinidis and JM Tiedje. Towards a Genome-Based Taxonomy for Prokaryotes. J Bacteriol. Sep 2005. 187(18): 62586264.
 
-Copyright © 2014 Donovan Parks. See LICENSE.txt for further details.
+Copyright © 2014 Donovan Parks. See LICENSE for further details.
