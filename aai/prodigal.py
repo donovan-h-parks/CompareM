@@ -56,7 +56,7 @@ class Prodigal(object):
             gffFile = os.path.join(outputDir, genomeId + '.gff')
             
             if not bCalledGenes:
-                cmd = ('prodigal -p single -q -g 11 -a %s -d %s -i %s > %s 2> /dev/null' % (aaGeneFile, ntGeneFile, genomeFile, gffFile))
+                cmd = ('prodigal -p single -q -m -g 11 -a %s -d %s -i %s > %s 2> /dev/null' % (aaGeneFile, ntGeneFile, genomeFile, gffFile))
                 os.system(cmd)
             else:
                 os.system('ln -s %s %s' % (os.path.abspath(genomeFile), aaGeneFile))

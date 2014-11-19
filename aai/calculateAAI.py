@@ -67,7 +67,7 @@ class CalculateAAI(object):
             
         return hits
           
-    def __workerThread(self, outputDir, perIdentity, perAlnLen, queueIn, queueOut):
+    def __workerThread(self, outputDir, perIdentityThreshold, perAlnLenThreshold, queueIn, queueOut):
         
         genesOutputDir = os.path.join(outputDir, 'called_genes')
         blastOutputDir = os.path.join(outputDir, 'blastp')
@@ -84,26 +84,28 @@ class CalculateAAI(object):
             
             # find blast hits between genome A and B
             outputFileAB = os.path.join(blastOutputDir, genomeIdA + '-' + genomeIdB + '.blastp.tsv')
-            blastHitsAB = self.__blastHits(outputFileAB, perIdentity, perAlnLen)
+            blastHitsAB = self.__blastHits(outputFileAB, perIdentityThreshold, perAlnLenThreshold)
             
             # find blast hits between genomes B and A
             outputFileBA = os.path.join(blastOutputDir, genomeIdB + '-' + genomeIdA + '.blastp.tsv')
-            blastHitsBA = self.__blastHits(outputFileBA, perIdentity, perAlnLen)
+            blastHitsBA = self.__blastHits(outputFileBA, perIdentityThreshold, perAlnLenThreshold)
 
             # find reciprocal best blast hits
-            fout = open(os.path.join(aaiOutputDir, genomeIdB + '-' + genomeIdA + '.rbb_hits.tsv'), 'w')
+            fout = open(os.path.join(aaiOutputDir, genomeIdA + '-' + genomeIdB + '.rbb_hits.tsv'), 'w')
             fout.write(genomeIdA + '\t' + genomeIdB + '\tPercent Identity\tPercent Alignment Length\te-value\tbitscore\n')
             
-            rbbHits = 0
             perIdentityHits = []
             for querySeqId, stats in blastHitsAB.iteritems():
                 subSeqId, perIdent, perAlnLen, evalue, bitscore = stats
                 if subSeqId in blastHitsBA and querySeqId == blastHitsBA[subSeqId][0]:
                     fout.write('%s\t%s\t%.2f\t%.2f\t%f\t%.2f\n' % (querySeqId, subSeqId, perIdent, perAlnLen, evalue, bitscore))
-                    rbbHits += 1
-                    perIdentityHits.append(perIdent)
+                    
+                    # take average of percent identity in both blast directions as
+                    # the results will be similar, but not identical
+                    avgPerIdentity = 0.5 * (perIdent + blastHitsBA[subSeqId][1])
+                    perIdentityHits.append(avgPerIdentity)                    
             fout.close()
-    
+            
             meanPerIdentityHits = 0
             if len(perIdentityHits) > 0:
                 meanPerIdentityHits = mean(perIdentityHits)
@@ -111,7 +113,8 @@ class CalculateAAI(object):
             stdPerIdentityHits = 0
             if len(perIdentityHits) >= 2:
                 stdPerIdentityHits = std(perIdentityHits)
-            queueOut.put((genomeIdA, genomeIdB, genesInGenomeA, genesInGenomeB, rbbHits, meanPerIdentityHits, stdPerIdentityHits))
+
+            queueOut.put((genomeIdA, genomeIdB, genesInGenomeA, genesInGenomeB, len(perIdentityHits), meanPerIdentityHits, stdPerIdentityHits))
 
     def __writerThread(self, numDataItems, outputDir, writerQueue):
         outputFile = os.path.join(outputDir, 'aai_summary.tsv')
@@ -138,12 +141,14 @@ class CalculateAAI(object):
         
         fout.close()
 
-    def run(self, genomeIds, perIdentity, perAlnLen, outputDir, threads):   
+    def run(self, genomeIds, perIdentityThreshold, perAlnLenThreshold, outputDir, threads):   
         print '  Calculating amino acid identity between all pairs of genomes:'
              
         # populate worker queue with data to process
         workerQueue = mp.Queue()
         writerQueue = mp.Queue()
+        
+        genomeIds.sort(key=str.lower)
         
         numPairs = 0
         for i in xrange(0, len(genomeIds)):            
@@ -155,7 +160,7 @@ class CalculateAAI(object):
             workerQueue.put((None, None))
         
         try:
-            workerProc = [mp.Process(target = self.__workerThread, args = (outputDir, perIdentity, perAlnLen, workerQueue, writerQueue)) for _ in range(threads)]
+            workerProc = [mp.Process(target = self.__workerThread, args = (outputDir, perIdentityThreshold, perAlnLenThreshold, workerQueue, writerQueue)) for _ in range(threads)]
             writeProc = mp.Process(target = self.__writerThread, args = (numPairs, outputDir, writerQueue))
             
             writeProc.start()

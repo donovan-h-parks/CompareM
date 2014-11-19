@@ -41,7 +41,8 @@ def printHelp():
     print '                ...::: AAI v' + __version__ + ' :::...'''
     print '''\
 
-  Calculate amino acid identity (AAI) between orthologous genes.
+  Calculate amino acid identity (AAI) between genomes.
+  
     call_genes  -> Identify genes within genomes
     ortholog    -> Identify orthologs within genomes
     calculate   -> Calculate AAI between orthologs
@@ -52,7 +53,10 @@ def printHelp():
     dispensable -> [Not implemented] Identify genes contained in more than one, but not all genomes
     unique      -> [Not implemented] Identify genes present in a single genome
     
-  Use: aai <command> -h for command specific help
+  Use: aai <command> -h for command specific help.
+  
+  Feature requests or bug reports can be sent to Donovan Parks (donovan.parks@gmail.com)
+    or posted on GitHub (https://github.com/dparks1134/aai).
     '''
 
 if __name__ == '__main__':
