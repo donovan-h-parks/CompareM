@@ -7,7 +7,7 @@ KT Konstantinidis and JM Tiedje. Towards a Genome-Based Taxonomy for Prokaryotes
 ## Install
 
 The simplest way to install this package is through pip:
-> pip install aai
+> sudo pip install aai
 
 This package requires numpy to be installed and Prodigal (http://prodigal.ornl.gov/) to be on your path.
 
