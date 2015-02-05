@@ -26,8 +26,8 @@ import logging
 import ntpath
 from collections import defaultdict
 
-from aai.seq_io import SeqIO
-from aai.parallel import Parallel
+from comparem.seq_io import SeqIO
+from comparem.parallel import Parallel
 
 
 class AminoAcidUsage(object):

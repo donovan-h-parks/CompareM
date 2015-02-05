@@ -31,8 +31,8 @@ import tempfile
 import shutil
 import multiprocessing as mp
 
-from aai.seq_io import SeqIO
-from aai.common import checkFileExists
+from comparem.seq_io import SeqIO
+from comparem.common import check_file_exists
 
 import numpy as np
 
@@ -173,7 +173,7 @@ class ProdigalGeneFeatureParser():
 
     def __init__(self, filename):
         """Initialization."""
-        checkFileExists(filename)
+        check_file_exists(filename)
 
         self.genes = {}
         self.lastCodingBase = {}

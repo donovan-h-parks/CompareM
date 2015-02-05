@@ -25,23 +25,23 @@ import sys
 import logging
 
 
-def checkFileExists(inputFile):
+def check_file_exists(input_file):
     """Check if file exists."""
-    if not os.path.exists(inputFile):
+    if not os.path.exists(input_file) and os.path.isfile(input_file):
         logger = logging.getLogger()
-        logger.error('  [Error] Input file does not exists: ' + inputFile + '\n')
+        logger.error('  [Error] Input file does not exists: ' + input_file + '\n')
         sys.exit()
 
 
-def checkDirExists(inputDir):
+def check_dir_exists(input_dir):
     """Check if directory exists."""
-    if not os.path.exists(inputDir):
+    if not os.path.exists(input_dir) and os.path.isdir(input_dir):
         logger = logging.getLogger()
-        logger.error('  [Error] Input directory does not exists: ' + inputDir + '\n')
+        logger.error('  [Error] Input directory does not exists: ' + input_dir + '\n')
         sys.exit()
 
 
-def makeSurePathExists(path):
+def make_sure_path_exists(path):
     """Create directory if it does not exist."""
     try:
         os.makedirs(path)

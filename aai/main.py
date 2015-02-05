@@ -19,14 +19,13 @@ import os
 import sys
 import logging
 
-from aai.time_keeper import TimeKeeper
-
-from aai.prodigal import Prodigal
-from aai.blast import Blast
-from aai.aai_calculator import AAICalculator
-from aai.codon_usage import CodonUsage
-from aai.amino_acid_usage import AminoAcidUsage
-from aai.PCoA import PCoA
+from comparem.time_keeper import TimeKeeper
+from comparem.prodigal import Prodigal
+from comparem.blast import Blast
+from comparem.aai_calculator import AAICalculator
+from comparem.codon_usage import CodonUsage
+from comparem.amino_acid_usage import AminoAcidUsage
+from comparem.PCoA import PCoA
 
 
 class OptionsParser():

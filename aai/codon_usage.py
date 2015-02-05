@@ -27,7 +27,7 @@ import logging
 import ntpath
 from collections import defaultdict
 
-from aai.seq_io import SeqIO
+from comparem.seq_io import SeqIO
 
 
 class CodonUsage(object):

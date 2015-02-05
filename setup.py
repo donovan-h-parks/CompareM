@@ -4,20 +4,20 @@ import os
 
 def version():
     setupDir = os.path.dirname(os.path.realpath(__file__))
-    versionFile = open(os.path.join(setupDir, 'aai', 'VERSION'))
+    versionFile = open(os.path.join(setupDir, 'comparem', 'VERSION'))
     return versionFile.read().strip()
 
 setup(
-    name='aai',
+    name='CompareM',
     version=version(),
     author='Donovan Parks',
     author_email='donovan.parks@gmail.com',
-    packages=['aai'],
-    scripts=['bin/aai'],
-    package_data={'aai' : ['VERSION']},
-    url='http://pypi.python.org/pypi/aai/',
+    packages=['comparem'],
+    scripts=['bin/comparem'],
+    package_data={'comparem' : ['VERSION']},
+    url='http://pypi.python.org/pypi/comparem/',
     license='GPL3',
-    description='Calculate amino acid identity (AAI) between genomes.',
+    description='A toolbox for comparative genomics.',
     long_description=open('README.md').read(),
     install_requires=[
         "numpy >= 1.8.0"],

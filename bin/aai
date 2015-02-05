@@ -30,22 +30,22 @@ import sys
 
 import argparse
 
-from aai.main import OptionsParser
-from aai.parallel import Parallel
+from comparem.main import OptionsParser
+from comparem.parallel import Parallel
 
 
 def version():
     binDir = os.path.dirname(os.path.realpath(__file__))
-    versionFile = open(os.path.join(binDir, '..', 'aai', 'VERSION'))
+    versionFile = open(os.path.join(binDir, '..', 'comparem', 'VERSION'))
     return versionFile.read().strip()
 
 
 def print_help():
     print ''
-    print '                ...::: AAI v' + version() + ' :::...'''
+    print '                ...::: CompareM v' + version() + ' :::...'''
     print '''\
 
-  Calculate amino acid identity (AAI) between genomes.
+  A toolbox for comparative genomics.
 
     call_genes  -> Identify genes within genomes
     ortholog    -> Identify orthologs within genomes
@@ -62,10 +62,10 @@ def print_help():
 
     pcoa_plot    -> [Not implemented] Generate PCoA plot indicating relative similarity of genomes
 
-  Use: aai <command> -h for command specific help.
+  Use: comparem <command> -h for command specific help.
 
   Feature requests or bug reports can be sent to Donovan Parks (donovan.parks@gmail.com)
-    or posted on GitHub (https://github.com/dparks1134/aai).
+    or posted on GitHub (https://github.com/dparks1134/comparem).
     '''
 
 if __name__ == '__main__':

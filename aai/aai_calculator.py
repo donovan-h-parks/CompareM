@@ -29,7 +29,7 @@ import multiprocessing as mp
 
 from numpy import mean, std
 
-from aai.seq_io import SeqIO
+from comparem.seq_io import SeqIO
 
 
 class AAICalculator(object):
@@ -39,7 +39,7 @@ class AAICalculator(object):
         """Initialization."""
         self.logger = logging.getLogger()
 
-    def _blastHits(self, blastTable, perIdentityThreshold, perAlnLenThreshold):
+    def _blast_hits(self, blastTable, perIdentityThreshold, perAlnLenThreshold):
         """Identify homologous genes among BLAST hits.
 
         Determines the best hit for each query sequence which
