@@ -2,18 +2,18 @@
 
 <b>[This project is in active development and not currently recommended for public use.]</b>
 
-CompareM is a comparative genomics tools. It provides statistics for individual genomes (e.g., GC content, coding density) and across groups of genomes (e.g., amino acid identity; core, dispensible, and unique gene sets). Emphasis has been placed on scalability to tens of thousands of genomes. The current functionality is currently planned:
+CompareM is a comparative genomics toolbox. It provides statistics across groups of genomes (e.g., amino acid identity; core, dispensible, and unique gene sets) and for individual genomes (e.g., GC content, coding density). Emphasis has been placed on providing parallelized implementations for calculating statistics in order to allow scalability to tens of thousands of genomes. The functionality currently planned is:
 
-<i>Genome statistics:</i>
+<i>Comparative genomic statistics:</i>
+* calculation of the amino acid identity between genomes
+* identification of core, dispensible, and unique gene sets
+
+<i>Single genome statistics:</i>
 * GC content
 * coding density
 * codon and amino acid usage
 * automatic identification of translation table
 * N50; maximum and mean scaffold/contig size; no. of scaffolds/contigs
-
-<i>Comparative statistics:</i>
-* calculation of the amino acid identity between genomes
-* identification of core, dispensible, and unique gene sets
 
 A number of auxillary tools are also provides which are often helpful within comparative genomic studies:
 * back-translation of amino acid alignments to nucleotides
