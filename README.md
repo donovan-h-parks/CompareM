@@ -17,7 +17,8 @@ CompareM is a comparative genomics toolbox. It provides statistics across groups
 
 A number of auxillary tools are also provides which are often helpful within comparative genomic studies:
 * back-translation of amino acid alignments to nucleotides
-* identification of homologous genes followed by alignment and tree inference 
+* identification of homologous genes followed by alignment and tree inference
+* estimated tates of synonymous and non-synonymous substitution
 
 ## Install
 
