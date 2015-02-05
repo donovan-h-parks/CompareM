@@ -1,8 +1,4 @@
 ###############################################################################
-#
-# timeKeeper.py - lass for creating time stamps
-#
-###############################################################################
 #                                                                             #
 #    This program is free software: you can redistribute it and/or modify     #
 #    it under the terms of the GNU General Public License as published by     #
@@ -21,6 +17,7 @@
 
 import time
 import logging
+
 
 class TimeKeeper:
     def __init__(self):
@@ -44,5 +41,5 @@ class TimeKeeper:
         self.logger.info(self.getTimeStamp())
 
     def secondsToStr(self, t):
-        rediv = lambda ll,b : list(divmod(ll[0],b)) + ll[1:]
-        return "%d:%02d:%02d.%03d" % tuple(reduce(rediv,[[t*1000,],1000,60,60]))
+        rediv = lambda ll, b: list(divmod(ll[0], b)) + ll[1:]
+        return "%d:%02d:%02d.%03d" % tuple(reduce(rediv, [[t * 1000, ], 1000, 60, 60]))

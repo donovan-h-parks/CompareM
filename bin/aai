@@ -1,10 +1,6 @@
 #!/srv/sw/python/2.7.4/bin/python
 
 ###############################################################################
-#
-# aai - main program entry point. See aai/main.py for internals.
-#
-###############################################################################
 #                                                                             #
 #    This program is free software: you can redistribute it and/or modify     #
 #    it under the terms of the GNU General Public License as published by     #
@@ -28,60 +24,74 @@ __license__ = "GPL3"
 __maintainer__ = "Donovan Parks"
 __email__ = "donovan.parks@gmail.com"
 __status__ = "Development"
-__version__ = "0.0.1"
 
+import os
 import sys
 
 import argparse
 
 from aai.main import OptionsParser
+from aai.parallel import Parallel
 
-def printHelp():
+
+def version():
+    binDir = os.path.dirname(os.path.realpath(__file__))
+    versionFile = open(os.path.join(binDir, '..', 'aai', 'VERSION'))
+    return versionFile.read().strip()
+
+
+def print_help():
     print ''
-    print '                ...::: AAI v' + __version__ + ' :::...'''
+    print '                ...::: AAI v' + version() + ' :::...'''
     print '''\
 
   Calculate amino acid identity (AAI) between genomes.
-  
+
     call_genes  -> Identify genes within genomes
     ortholog    -> Identify orthologs within genomes
     calculate   -> Calculate AAI between orthologs
-    
+
     aai_wf      -> Runs call_genes, ortholog, and calculate
-    
+
+    aa_usage    -> Calculate amino acid usage within each genome
+    codon_usage -> Calculate codon usage within each genome
+
     core        -> [Not implemented] Identify genes contained in all genomes
     dispensable -> [Not implemented] Identify genes contained in more than one, but not all genomes
     unique      -> [Not implemented] Identify genes present in a single genome
-    
+
+    pcoa_plot    -> [Not implemented] Generate PCoA plot indicating relative similarity of genomes
+
   Use: aai <command> -h for command specific help.
-  
+
   Feature requests or bug reports can be sent to Donovan Parks (donovan.parks@gmail.com)
     or posted on GitHub (https://github.com/dparks1134/aai).
     '''
 
 if __name__ == '__main__':
+
     # initialize the options parser
     parser = argparse.ArgumentParser(add_help=False)
     subparsers = parser.add_subparsers(help="--", dest='subparser_name')
-    
+
     # identify genes within genomes
     call_genes_parser = subparsers.add_parser('call_genes',
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                         description='Identify genes within genomes.')
     call_genes_parser.add_argument('genome_dir', help="directory containing genomes")
     call_genes_parser.add_argument('output_dir', help="output directory")
-    call_genes_parser.add_argument('-g', '--genes', dest='bCalledGenes', action="store_true", default=False,  help="files in genome directory contain genes as amino acids")
+    call_genes_parser.add_argument('-g', '--genes', dest='bCalledGenes', action="store_true", default=False, help="files in genome directory contain genes as amino acids")
     call_genes_parser.add_argument('-x', '--extension', default='fna', help="extension of genomes (other files in folder are ignored)")
-    call_genes_parser.add_argument('-t', '--threads', help='number of threads', type=int, default = 16)
-    
+    call_genes_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+
     # identify orthologs within genomes
     ortholog_parser = subparsers.add_parser('ortholog',
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                         description='Identify orthologs within genomes.')
     ortholog_parser.add_argument('output_dir', help="output directory (same specific with 'call_genes')")
     ortholog_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
-    ortholog_parser.add_argument('-t', '--threads', help='number of threads', type=int, default = 16)
-    
+    ortholog_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+
     # calculate AAI between orthologs
     calculate_parser = subparsers.add_parser('calculate',
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
@@ -89,25 +99,65 @@ if __name__ == '__main__':
     calculate_parser.add_argument('output_dir', help="output directory (same specific with 'call_genes')")
     calculate_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
     calculate_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining othology")
-    calculate_parser.add_argument('-t', '--threads', help='number of threads', type=int, default = 16)
-    
+    calculate_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+
     # runs call_genes, ortholog, and calculate
     aai_wf_parser = subparsers.add_parser('aai_wf',
                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
                                         description='Runs call_genes, ortholog, and calculate.')
     aai_wf_parser.add_argument('genome_dir', help="directory containing genomes")
     aai_wf_parser.add_argument('output_dir', help="output directory")
-    aai_wf_parser.add_argument('-g', '--genes', dest='bCalledGenes', action="store_true", default=False,  help="files in genome directory contain genes as amino acids")
+    aai_wf_parser.add_argument('-g', '--genes', dest='bCalledGenes', action="store_true", default=False, help="files in genome directory contain genes as amino acids")
     aai_wf_parser.add_argument('-x', '--extension', default='fna', help="extension of genomes (other files in folder are ignored)")
     aai_wf_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
     aai_wf_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
     aai_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining othology")
-    aai_wf_parser.add_argument('-t', '--threads', help='number of threads', type=int, default = 16)
-  
+    aai_wf_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+
+    # calculate amino acid usage
+    aa_usage_parser = subparsers.add_parser('aa_usage',
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        description='Calculate amino acid usage within each genome.')
+    aa_usage_parser.add_argument('input_dir', help="directory containing fasta files with called genes in amino acid space")
+    aa_usage_parser.add_argument('output_file', help="file indicating genes amino acid usage for each genome")
+    aa_usage_parser.add_argument('-x', '--extension', default='.genes.faa', help="extension of fasta files with called genes (other files are ignored)")
+    aa_usage_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+
+    # calculate codon usage
+    codon_parser = subparsers.add_parser('codon_usage',
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        description='Calculate codon usage within each genome.')
+    codon_parser.add_argument('input_dir', help="directory containing fasta files with called genes in nucleotide space")
+    codon_parser.add_argument('output_file', help="output file indicating codon usage of each genome")
+    codon_parser.add_argument('-x', '--extension', default='.genes.fna', help="extension of fasta files with called genes (other files are ignored)")
+    codon_parser.add_argument('--keep_ambiguous', action='store_true', help="keep codons with ambiguous bases")
+
+    # calculate AAI between orthologs
+    unique_parser = subparsers.add_parser('unique',
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        description='Identify genes present in a single genome.')
+    unique_parser.add_argument('output_dir', help="output directory specific with 'ortholog'")
+    unique_parser.add_argument('output_file', help="file indicating genes identified as unique to a single genome")
+    unique_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
+    unique_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
+    unique_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining othology")
+
+    # produce PCoA plot
+    pcoa_plot_parser = subparsers.add_parser('pcoa_plot',
+                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        description='Generate PCoA plot indicating relative similarity of genomes.')
+    pcoa_plot_parser.add_argument('aai_summary_file', help="file indicating pairwise AAI between genomes")
+    pcoa_plot_parser.add_argument('output_file', help="output PCA plot")
+    pcoa_plot_parser.add_argument('--width', type=float, default=6.5, help='width of output image')
+    pcoa_plot_parser.add_argument('--height', type=float, default=6.5, help='height of output image')
+    pcoa_plot_parser.add_argument('--image_type', default='png', choices=['eps', 'pdf', 'png', 'ps', 'svg'], help='desired image type')
+    pcoa_plot_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
+    pcoa_plot_parser.add_argument('--font_size', type=int, default=8, help='Desired font size')
+
     # get and check options
     args = None
     if(len(sys.argv) == 1 or sys.argv[1] == '-h' or sys.argv == '--help'):
-        printHelp()
+        print_help()
         sys.exit(0)
     else:
         args = parser.parse_args()
@@ -116,20 +166,19 @@ if __name__ == '__main__':
     try:
         parser = OptionsParser()
         if(False):
-            #import pstats
-            #p = pstats.Stats('prof')
-            #p.sort_stats('cumulative').print_stats(10)
-            #p.sort_stats('time').print_stats(10)
+            # import pstats
+            # p = pstats.Stats('prof')
+            # p.sort_stats('cumulative').print_stats(10)
+            # p.sort_stats('time').print_stats(10)
             import cProfile
-            cProfile.run('parser.parseOptions(args)', 'prof')
+            cProfile.run('parser.parse_options(args)', 'prof')
         elif False:
             import pdb
-            pdb.run(parser.parseOptions(args))
+            pdb.run(parser.parse_options(args))
         else:
-            parser.parseOptions(args)
+            parser.parse_options(args)
     except SystemExit:
         print "\n  Controlled exit resulting from an unrecoverable error or warning."
     except:
         print "\nUnexpected error:", sys.exc_info()[0]
         raise
-

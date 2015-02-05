@@ -1,18 +1,24 @@
 from distutils.core import setup
 
+import os
+
+def version():
+    setupDir = os.path.dirname(os.path.realpath(__file__))
+    versionFile = open(os.path.join(setupDir, 'aai', 'VERSION'))
+    return versionFile.read().strip()
+
 setup(
     name='aai',
-    version='0.0.1',
+    version=version(),
     author='Donovan Parks',
     author_email='donovan.parks@gmail.com',
     packages=['aai'],
     scripts=['bin/aai'],
+    package_data={'aai' : ['VERSION']},
     url='http://pypi.python.org/pypi/aai/',
     license='GPL3',
-    description='Assess the quality of putative genome bins.',
+    description='Calculate amino acid identity (AAI) between genomes.',
     long_description=open('README.md').read(),
     install_requires=[
-        "numpy >= 1.8.0",
-        "scipy >= 0.9.0",
-        "matplotlib >= 1.1.0"],
+        "numpy >= 1.8.0"],
 )
