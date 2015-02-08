@@ -21,25 +21,34 @@ import logging
 
 class TimeKeeper:
     def __init__(self):
+        """Initialization."""
         self.logger = logging.getLogger()
-        self.startTime = time.time()
-        self.lastLogTime = self.startTime
+        self.start_time = time.time()
+        self.last_log_time = self.start_time
 
-    def startTimer(self):
+    def start_timer(self):
         """Restart the timer"""
-        self.startTime = time.time()
-        self.lastLogTime = self.startTime
+        self.start_time = time.time()
+        self.last_log_time = self.start_time
 
-    def getTimeStamp(self):
+    def get_time_stamp(self):
         """Make a time stamp"""
         now = time.time()
-        ret_str = "\n  { Current stage: %s || Total: %s }" % (self.secondsToStr(now - self.lastLogTime), self.secondsToStr(now - self.startTime))
-        self.lastLogTime = now
+        ret_str = "\n  { Current stage: %s || Total: %s }" % (self.seconds_to_str(now - self.last_log_time), self.seconds_to_str(now - self.start_time))
+        self.last_log_time = now
         return ret_str
 
-    def printTimeStamp(self):
-        self.logger.info(self.getTimeStamp())
+    def print_time_stamp(self):
+        """Print time stamp."""
+        self.logger.info(self.get_time_stamp())
 
-    def secondsToStr(self, t):
+    def seconds_to_str(self, time_in_seconds):
+        """Convert elapsed time in seconds to human readable string.
+
+        Parameters
+        ----------
+        time_in_seconds
+            Time in seconds.
+        """
         rediv = lambda ll, b: list(divmod(ll[0], b)) + ll[1:]
-        return "%d:%02d:%02d.%03d" % tuple(reduce(rediv, [[t * 1000, ], 1000, 60, 60]))
+        return "%d:%02d:%02d.%03d" % tuple(reduce(rediv, [[time_in_seconds * 1000, ], 1000, 60, 60]))

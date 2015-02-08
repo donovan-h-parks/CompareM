@@ -26,204 +26,212 @@ from comparem.aai_calculator import AAICalculator
 from comparem.codon_usage import CodonUsage
 from comparem.amino_acid_usage import AminoAcidUsage
 from comparem.PCoA import PCoA
+from comparem.common import (remove_extension,
+                             make_sure_path_exists,
+                             check_dir_exists)
 
 
 class OptionsParser():
     def __init__(self):
         self.logger = logging.getLogger()
-        self.timeKeeper = TimeKeeper()
+        self.time_keeper = TimeKeeper()
 
     def call_genes(self, options):
         """Call genes command"""
         self.logger.info('')
         self.logger.info('*******************************************************************************')
-        self.logger.info(' [AAI - call_genes] Identifying genes within genomes.')
+        self.logger.info(' [CompareM - call_genes] Identifying genes within genomes.')
         self.logger.info('*******************************************************************************')
         self.logger.info('')
 
-        if not os.path.exists(options.output_dir):
-            os.mkdir(options.output_dir)
-
-        output_dir = os.path.join(options.output_dir, 'called_genes')
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
+        make_sure_path_exists(options.output_dir)
 
         genome_files = []
         for f in os.listdir(options.genome_dir):
-            if f.endswith(options.extension):
+            if f.endswith(options.genome_ext):
                 genome_files.append(os.path.join(options.genome_dir, f))
 
         if not genome_files:
-            print '  [Error] No genomes found. Check the extension (-x) used to identify genomes.'
+            self.logger.warning('  [Warning] No genomes found. Check the --genome_ext flag used to identify genomes.')
             sys.exit()
 
         prodigal = Prodigal()
-        prodigal.run(genome_files, options.bCalledGenes, output_dir, options.cpus)
+        prodigal.run(genome_files, options.genes, options.output_dir, options.cpus)
 
-        self.timeKeeper.printTimeStamp()
+        self.logger.info('')
+        self.logger.info('  Identified genes written to: %s' % options.output_dir)
 
-    def ortholog(self, options):
-        """Ortholog command"""
+        self.time_keeper.print_time_stamp()
+
+    def blast(self, options):
+        """Blast command"""
         self.logger.info('')
         self.logger.info('*******************************************************************************')
-        self.logger.info(' [AAI - ortholog] Identifying orthologs within genomes.')
+        self.logger.info(' [CompareM - blast] Performing reciprocal blast between genomes.')
         self.logger.info('*******************************************************************************')
         self.logger.info('')
 
-        gene_dir = os.path.join(options.output_dir, 'called_genes')
-        if not os.path.exists(gene_dir):
-            print "  [Error] You must specify the output directory used with the 'call_genes' command"
-            sys.exit(-1)
+        check_dir_exists(options.gene_dir)
+        make_sure_path_exists(options.output_dir)
 
-        output_dir = os.path.join(options.output_dir, 'blastp')
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
+        aa_gene_files = []
+        for f in os.listdir(options.gene_dir):
+            if f.endswith(options.gene_ext):
+                aa_gene_files.append(os.path.join(options.gene_dir, f))
 
-        aaGeneFiles = []
-        for f in os.listdir(gene_dir):
-            if f.endswith('faa'):
-                aaGeneFiles.append(os.path.join(gene_dir, f))
+        if not aa_gene_files:
+            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
+            sys.exit()
 
         blast = Blast()
-        blast.run(aaGeneFiles, options.evalue, output_dir, options.cpus)
+        blast.run(aa_gene_files, options.evalue, options.gene_ext, options.output_dir, options.cpus)
 
-        self.timeKeeper.printTimeStamp()
+        self.logger.info('')
+        self.logger.info('  Reciprocal blast hits written to: %s' % options.output_dir)
 
-    def calculate(self, options, db=None):
-        """Calculate command"""
+        self.time_keeper.print_time_stamp()
+
+    def aai(self, options):
+        """AAI command"""
         self.logger.info('')
         self.logger.info('*******************************************************************************')
-        self.logger.info(' [AAI - calculate] Calculating AAI between orthologs')
+        self.logger.info(' [CompareM - aai] Identifying the AAI between homologs in genome pairs.')
         self.logger.info('*******************************************************************************')
         self.logger.info('')
 
-        gene_dir = os.path.join(options.output_dir, 'called_genes')
-        if not os.path.exists(gene_dir):
-            print "  [Error] You must specify the output directory used with the 'call_genes' command"
-            sys.exit(-1)
+        check_dir_exists(options.gene_dir)
+        check_dir_exists(options.blast_dir)
+        make_sure_path_exists(options.output_dir)
 
-        output_dir = os.path.join(options.output_dir, 'aai')
-        if not os.path.exists(output_dir):
-            os.mkdir(output_dir)
+        genome_ids = []
+        for f in os.listdir(options.gene_dir):
+            if f.endswith(options.gene_ext):
+                genome_id = remove_extension(f, options.gene_ext)
+                genome_ids.append(genome_id)
 
-        genomeIds = []
-        for f in os.listdir(gene_dir):
-            if f.endswith('faa'):
-                genomeId = f[0:f.rfind('.genes.faa')]
-                genomeIds.append(genomeId)
+        if not genome_ids:
+            self.logger.warning('  [Warning] No gene files found. Check the extension (-x) used to identify gene files.')
+            sys.exit()
 
         aai_calculator = AAICalculator()
-        aai_calculator.run(genomeIds, options.per_identity, options.per_aln_len, options.output_dir, options.cpus)
+        aai_calculator.run(genome_ids,
+                            options.gene_dir,
+                            options.blast_dir,
+                            options.gene_ext,
+                            options.per_identity,
+                            options.per_aln_len,
+                            options.output_dir,
+                            options.cpus)
 
-        self.timeKeeper.printTimeStamp()
+        shared_genes_dir = os.path.join(options.output_dir, aai_calculator.shared_genes)
+        self.logger.info('')
+        self.logger.info('  Identified homologs between genome pairs written to: %s' % shared_genes_dir)
 
-    def aa_usage(self, options, db=None):
+        self.time_keeper.print_time_stamp()
+
+    def aa_usage(self, options):
         """Amino acid usage command"""
         self.logger.info('')
         self.logger.info('*******************************************************************************')
-        self.logger.info(' [AAI - aa_usage] Calculating amino acid usage within each genome.')
+        self.logger.info(' [CompareM - aa_usage] Calculating amino acid usage within each genome.')
         self.logger.info('*******************************************************************************')
         self.logger.info('')
 
-        if not os.path.exists(options.input_dir):
-            self.logger.error('  Input directory does not exists: %s' % options.input_dir)
-            sys.exit()
+        check_dir_exists(options.gene_dir)
 
         # get list of files with called genes
-        geneFiles = []
-        files = os.listdir(options.input_dir)
+        gene_files = []
+        files = os.listdir(options.gene_dir)
         for f in files:
-            if f.endswith(options.extension):
-                geneFiles.append(os.path.join(options.input_dir, f))
+            if f.endswith(options.gene_ext):
+                gene_files.append(os.path.join(options.gene_dir, f))
 
         # warn use if no files were found
-        if len(geneFiles) == 0:
-            self.logger.warning('  No files found. Perhaps you need to set the extension (-x) flag.')
+        if len(gene_files) == 0:
+            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
             return
 
         # calculate amino acid usage
-        aminoAcidUsage = AminoAcidUsage()
-        aaInGenomes, aaSet = aminoAcidUsage.run(geneFiles, options.cpus)
+        amino_acid_usage = AminoAcidUsage()
+        genome_aa_usage, aa_set = amino_acid_usage.run(gene_files, options.cpus)
 
         # write out results
         fout = open(options.output_file, 'w')
-        for aa in aaSet:
+        for aa in aa_set:
             fout.write('\t' + aa)
         fout.write('\n')
 
-        for genomeId, codons in aaInGenomes.iteritems():
+        for genomeId, codons in genome_aa_usage.iteritems():
             fout.write(genomeId)
 
-            for aa in aaSet:
+            for aa in aa_set:
                 fout.write('\t%d' % codons.get(aa, 0))
             fout.write('\n')
 
         self.logger.info('')
         self.logger.info('  Amino acid usage written to: %s' % options.output_file)
 
-        self.timeKeeper.printTimeStamp()
+        self.time_keeper.print_time_stamp()
 
-    def codon_usage(self, options, db=None):
+    def codon_usage(self, options):
         """Codon usage command"""
         self.logger.info('')
         self.logger.info('*******************************************************************************')
-        self.logger.info(' [AAI - codon_usage] Calculating codon usage within each genome.')
+        self.logger.info(' [CompareM - codon_usage] Calculating codon usage within each genome.')
         self.logger.info('*******************************************************************************')
         self.logger.info('')
 
-        if not os.path.exists(options.input_dir):
-            self.logger.error('  Input directory does not exists: %s' % options.input_dir)
-            sys.exit()
+        check_dir_exists(options.gene_dir)
 
         # get list of files with called genes
-        geneFiles = []
-        files = os.listdir(options.input_dir)
+        gene_files = []
+        files = os.listdir(options.gene_dir)
         for f in files:
-            if f.endswith(options.extension):
-                geneFiles.append(os.path.join(options.input_dir, f))
+            if f.endswith(options.gene_ext):
+                gene_files.append(os.path.join(options.input_dir, f))
 
         # warn use if no files were found
-        if len(geneFiles) == 0:
-            self.logger.warning('  No files found. Perhaps you need to set the extension (-x) flag.')
+        if len(gene_files) == 0:
+            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
             return
 
         # calculate amino acid usage
-        codonUsage = CodonUsage()
-        codonsInGenomes, codonSet = codonUsage.run(geneFiles, options.keep_ambiguous)
+        codon_usage = CodonUsage()
+        genome_codon_usage, codon_set = codon_usage.run(gene_files, options.keep_ambiguous)
 
         # write out results
         fout = open(options.output_file, 'w')
-        for aa in codonSet:
+        for aa in codon_set:
             fout.write('\t' + aa)
         fout.write('\n')
 
-        for genomeId, codons in codonsInGenomes.iteritems():
+        for genomeId, codons in genome_codon_usage.iteritems():
             fout.write(genomeId)
 
-            for aa in codonSet:
+            for aa in codon_set:
                 fout.write('\t%d' % codons.get(aa, 0))
             fout.write('\n')
 
         self.logger.info('')
         self.logger.info('  Codon usage written to: %s' % options.output_file)
 
-        self.timeKeeper.printTimeStamp()
+        self.time_keeper.print_time_stamp()
 
-    def unique(self, options, db=None):
+    def unique(self, options):
         """Unique command"""
         self.logger.info('')
         self.logger.info('*******************************************************************************')
-        self.logger.info(' [AAI - unique] Identifying genes present in a single genome.')
+        self.logger.info(' [CompareM - unique] Identifying genes present in a single genome.')
         self.logger.info('*******************************************************************************')
         self.logger.info('')
 
-        self.timeKeeper.printTimeStamp()
+        self.time_keeper.print_time_stamp()
 
-    def pcoa_plot(self, options, db=None):
+    def pcoa_plot(self, options):
         """Unique command"""
         self.logger.info('')
         self.logger.info('*******************************************************************************')
-        self.logger.info(' [AAI - pcoa_plot] Generating PCoA plot showing relative similarity of genomes.')
+        self.logger.info(' [CompareM - pcoa_plot] Generating PCoA plot showing relative similarity of genomes.')
         self.logger.info('*******************************************************************************')
         self.logger.info('')
 
@@ -231,7 +239,7 @@ class OptionsParser():
         pcoa = PCoA()
         pcoa.plot(options.aai_summary_file)
 
-        self.timeKeeper.printTimeStamp()
+        self.time_keeper.print_time_stamp()
 
     def parse_options(self, options):
         """Parse user options and call the correct pipeline(s)"""
@@ -253,14 +261,25 @@ class OptionsParser():
 
         if(options.subparser_name == 'call_genes'):
             self.call_genes(options)
-        elif(options.subparser_name == 'ortholog'):
-            self.ortholog(options)
-        elif(options.subparser_name == 'calculate'):
-            self.calculate(options)
+        elif(options.subparser_name == 'blast'):
+            self.blast(options)
+        elif(options.subparser_name == 'aai'):
+            self.aai(options)
         elif(options.subparser_name == 'aai_wf'):
+            root_dir = options.output_dir
+            make_sure_path_exists(root_dir)
+
+            options.output_dir = os.path.join(root_dir, 'genes')
             self.call_genes(options)
-            self.ortholog(options)
-            self.calculate(options)
+
+            options.output_dir = os.path.join(root_dir, 'blast')
+            options.gene_dir = os.path.join(root_dir, 'genes')
+            options.gene_ext = '.genes.faa'
+            self.blast(options)
+
+            options.output_dir = root_dir
+            options.blast_dir = os.path.join(root_dir, 'blast')
+            self.aai(options)
         elif(options.subparser_name == 'aa_usage'):
             self.aa_usage(options)
         elif(options.subparser_name == 'codon_usage'):

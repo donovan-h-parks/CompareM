@@ -30,7 +30,15 @@ import multiprocessing as mp
 from numpy import mean, std
 
 from comparem.seq_io import SeqIO
+from comparem.common import make_sure_path_exists
 
+"""
+*****************************************************************************
+To do:
+ - need to take into account homologs within a genome when identifying
+   reciprocal best blast hits.
+*****************************************************************************
+"""
 
 class AAICalculator(object):
     """Calculate AAI between all pairs of genomes."""
@@ -39,19 +47,21 @@ class AAICalculator(object):
         """Initialization."""
         self.logger = logging.getLogger()
 
-    def _blast_hits(self, blastTable, perIdentityThreshold, perAlnLenThreshold):
-        """Identify homologous genes among BLAST hits.
+        self.shared_genes = 'shared_genes'
+
+    def _blast_hits(self, blast_table, per_identity_threshold, per_aln_len_threshold):
+        """Identify homologs among BLAST hits.
 
         Determines the best hit for each query sequence which
         satisfies the conditions of being a homologous gene.
 
         Parameters
         ----------
-        blastTable : str
+        blast_table : str
             Name of table containing BLAST hits.
-        perIdentityThreshold : float
+        per_identity_threshold : float
             Percent identity threshold used to define a homologous gene.
-        perAlnLenThreshold : float
+        per_aln_len_threshold : float
             Alignment length threshold used to define a homologous gene.
 
         Returns
@@ -61,150 +71,214 @@ class AAICalculator(object):
         """
 
         hits = {}
-        for line in open(blastTable):
-            lineSplit = line.split('\t')
+        for line in open(blast_table):
+            line_split = line.split('\t')
 
-            querySeqId = lineSplit[0]
-            queryLen = int(lineSplit[1])
+            query_seq_id = line_split[0]
+            query_len = int(line_split[1])
 
-            subSeqId = lineSplit[2]
-            # subjectLen = int(lineSplit[3])
+            sub_seq_id = line_split[2]
+            # subject_len = int(line_split[3])
 
-            alnLen = int(lineSplit[4])
-            perIdent = float(lineSplit[5])
-            evalue = float(lineSplit[6])
-            bitscore = float(lineSplit[7])
+            aln_len = int(line_split[4])
+            per_ident = float(line_split[5])
+            evalue = float(line_split[6])
+            bitscore = float(line_split[7])
 
-            if perIdent >= perIdentityThreshold:
-                perAlnLen = alnLen * 100.0 / queryLen
+            if per_ident >= per_identity_threshold:
+                per_aln_len = aln_len * 100.0 / query_len
 
-                if perAlnLen >= perAlnLenThreshold:
-                    if querySeqId not in hits:  # take first hit passing criteria
-                        hits[querySeqId] = [subSeqId, perIdent, perAlnLen, evalue, bitscore]
+                if per_aln_len >= per_aln_len_threshold:
+                    if query_seq_id not in hits:  # take first hit passing criteria
+                        hits[query_seq_id] = [sub_seq_id, per_ident, per_aln_len, evalue, bitscore]
 
         return hits
 
-    def __workerThread(self, outputDir, perIdentityThreshold, perAlnLenThreshold, queueIn, queueOut):
+    def __producer(self, gene_dir, blast_dir, gene_ext, output_dir, per_identity_threshold, per_aln_len_threshold, producer_queue, consumer_queue):
+        """Identify reciprocal best blast hits between pairs of genomes.
 
-        genesOutputDir = os.path.join(outputDir, 'called_genes')
-        blastOutputDir = os.path.join(outputDir, 'blastp')
-        aaiOutputDir = os.path.join(outputDir, 'aai')
+        Parameters
+        ----------
+        gene_dir : str
+            Directory with amino acid genes in fasta format.
+        blast_dir : str
+            Directory with reciprocal blast between genome pairs.
+        gene_ext : str
+            Extension of fasta files containing genes.
+        output_dir : str
+            Directory to store AAI results.
+        per_identity_threshold : float
+            Percent identity threshold used to define a homologous gene.
+        per_aln_len_threshold : float
+            Alignment length threshold used to define a homologous gene.
+        producer_queue : queue
+            Queue containing pairs of genomes to process.
+        consumer_queue : queue
+            Queue to store completion of AAI calculations.
+        """
+
+        if gene_ext[0] != '.':
+            gene_ext = '.' + gene_ext
+
+        shared_genes_dir = os.path.join(output_dir, self.shared_genes)
+        make_sure_path_exists(shared_genes_dir)
 
         while True:
-            genomeIdA, genomeIdB = queueIn.get(block=True, timeout=None)
-            if genomeIdA == None:
+            genome_idA, genome_idB = producer_queue.get(block=True, timeout=None)
+            if genome_idA == None:
                 break
 
             seqIO = SeqIO()
 
             # count number of genes in each genome
-            genesInGenomeA = seqIO.readFasta(os.path.join(genesOutputDir, genomeIdA + '.genes.faa'))
-            genesInGenomeB = seqIO.readFasta(os.path.join(genesOutputDir, genomeIdB + '.genes.faa'))
+            genes_in_genomeA = seqIO.read_fasta(os.path.join(gene_dir, genome_idA + gene_ext))
+            genes_in_genomeB = seqIO.read_fasta(os.path.join(gene_dir, genome_idB + gene_ext))
 
             # find blast hits between genome A and B
-            outputFileAB = os.path.join(blastOutputDir, genomeIdA + '-' + genomeIdB + '.blastp.tsv')
-            blastHitsAB = self._blastHits(outputFileAB, perIdentityThreshold, perAlnLenThreshold)
+            output_fileAB = os.path.join(blast_dir, genome_idA + '-' + genome_idB + '.blastp.tsv')
+            blast_hitsAB = self._blast_hits(output_fileAB, per_identity_threshold, per_aln_len_threshold)
 
             # find blast hits between genomes B and A
-            outputFileBA = os.path.join(blastOutputDir, genomeIdB + '-' + genomeIdA + '.blastp.tsv')
-            blastHitsBA = self._blastHits(outputFileBA, perIdentityThreshold, perAlnLenThreshold)
+            output_fileBA = os.path.join(blast_dir, genome_idB + '-' + genome_idA + '.blastp.tsv')
+            blast_hitsBA = self._blast_hits(output_fileBA, per_identity_threshold, per_aln_len_threshold)
 
             # find reciprocal best blast hits
-            foutSeqs = open(os.path.join(aaiOutputDir, genomeIdA + '-' + genomeIdB + '.shared_genes.faa'), 'w')
+            fout_seqs = open(os.path.join(shared_genes_dir, genome_idA + '-' + genome_idB + '.shared_genes.faa'), 'w')
 
-            foutStats = open(os.path.join(aaiOutputDir, genomeIdA + '-' + genomeIdB + '.rbb_hits.tsv'), 'w')
-            foutStats.write(genomeIdA + '\t' + genomeIdB + '\tPercent Identity\tPercent Alignment Length\te-value\tbitscore\n')
+            fout_stats = open(os.path.join(shared_genes_dir, genome_idA + '-' + genome_idB + '.rbb_hits.tsv'), 'w')
+            fout_stats.write(genome_idA + '\t' + genome_idB + '\tPercent Identity\tPercent Alignment Length\te-value\tbitscore\n')
 
             perIdentityHits = []
-            for querySeqId, stats in blastHitsAB.iteritems():
+            for querySeqId, stats in blast_hitsAB.iteritems():
                 subSeqId, perIdent, perAlnLen, evalue, bitscore = stats
-                if subSeqId in blastHitsBA and querySeqId == blastHitsBA[subSeqId][0]:
-                    foutStats.write('%s\t%s\t%.2f\t%.2f\t%.2g\t%.2f\n' % (querySeqId, subSeqId, perIdent, perAlnLen, evalue, bitscore))
+                if subSeqId in blast_hitsBA and querySeqId == blast_hitsBA[subSeqId][0]:
+                    fout_stats.write('%s\t%s\t%.2f\t%.2f\t%.2g\t%.2f\n' % (querySeqId, subSeqId, perIdent, perAlnLen, evalue, bitscore))
 
                     # take average of percent identity in both blast directions as
                     # the results will be similar, but not identical
-                    avgPerIdentity = 0.5 * (perIdent + blastHitsBA[subSeqId][1])
+                    avgPerIdentity = 0.5 * (perIdent + blast_hitsBA[subSeqId][1])
                     perIdentityHits.append(avgPerIdentity)
 
                     # write out shared genes
-                    foutSeqs.write('>' + querySeqId + ' ' + genomeIdA + '\n')
-                    foutSeqs.write(genesInGenomeA[querySeqId] + '\n')
+                    fout_seqs.write('>' + querySeqId + '_' + genome_idA + '\n')
+                    fout_seqs.write(genes_in_genomeA[querySeqId] + '\n')
 
-                    foutSeqs.write('>' + subSeqId + ' ' + genomeIdB + '\n')
-                    foutSeqs.write(genesInGenomeB[subSeqId] + '\n')
+                    fout_seqs.write('>' + subSeqId + '_' + genome_idB + '\n')
+                    fout_seqs.write(genes_in_genomeB[subSeqId] + '\n')
 
-            foutSeqs.close()
-            foutStats.close()
+            fout_seqs.close()
+            fout_stats.close()
 
-            meanPerIdentityHits = 0
+            mean_per_identity_hits = 0
             if len(perIdentityHits) > 0:
-                meanPerIdentityHits = mean(perIdentityHits)
+                mean_per_identity_hits = mean(perIdentityHits)
 
-            stdPerIdentityHits = 0
+            std_per_identity_hits = 0
             if len(perIdentityHits) >= 2:
-                stdPerIdentityHits = std(perIdentityHits)
+                std_per_identity_hits = std(perIdentityHits)
 
-            queueOut.put((genomeIdA, genomeIdB, len(genesInGenomeA), len(genesInGenomeB), len(perIdentityHits), meanPerIdentityHits, stdPerIdentityHits))
+            consumer_queue.put((genome_idA, genome_idB, len(genes_in_genomeA), len(genes_in_genomeB), len(perIdentityHits), mean_per_identity_hits, std_per_identity_hits))
 
-    def __writerThread(self, numDataItems, outputDir, writerQueue):
-        outputFile = os.path.join(outputDir, 'aai_summary.tsv')
-        fout = open(outputFile, 'w')
+    def __consumer(self, num_genome_pairs, output_dir, consumer_queue):
+        """Track completion of reciprocal best blast runs.
+
+        Parameters
+        ----------
+        num_genome_pairs : int
+            Number of genome pairs to processed.
+        output_dir : str
+            Directory to store AAI results.
+        consumer_queue : queue
+            Queue used to indicate results of AAI calculation.
+        """
+
+        output_file = os.path.join(output_dir, 'aai_summary.tsv')
+        fout = open(output_file, 'w')
         fout.write('Genome Id A\tGenes in A\tGenome Id B\tGenes in B\tOrthologous Genes\tMean AAI\tStd AAI\n')
 
-        processedItems = 0
+        processed_items = 0
         while True:
-            genomeIdA, genomeIdB, genesInGenomeA, genesInGenomeB, rbbHits, meanPerIdentityHits, stdPerIdentityHits = writerQueue.get(block=True, timeout=None)
-            if genomeIdA == None:
+            genome_idA, genome_idB, genes_in_genomeA, genes_in_genomeB, rbb_hits, mean_per_identity_hits, std_per_identity_hits = consumer_queue.get(block=True, timeout=None)
+            if genome_idA == None:
                 break
 
-            processedItems += 1
-            statusStr = '    Finished processing %d of %d (%.2f%%) genome pairs.' % (processedItems, numDataItems, float(processedItems) * 100 / numDataItems)
-            sys.stdout.write('%s\r' % statusStr)
+            processed_items += 1
+            status = '    Finished processing %d of %d (%.2f%%) genome pairs.' % (processed_items, num_genome_pairs, float(processed_items) * 100 / num_genome_pairs)
+            sys.stdout.write('%s\r' % status)
             sys.stdout.flush()
 
-            fout.write('%s\t%d\t%s\t%d\t%d\t%.2f\t%.2f\n' % (genomeIdA, genesInGenomeA, genomeIdB, genesInGenomeB, rbbHits, meanPerIdentityHits, stdPerIdentityHits))
+            fout.write('%s\t%d\t%s\t%d\t%d\t%.2f\t%.2f\n' % (genome_idA, genes_in_genomeA, genome_idB, genes_in_genomeB, rbb_hits, mean_per_identity_hits, std_per_identity_hits))
 
         sys.stdout.write('\n')
 
         self.logger.info('')
-        self.logger.info('  Summary of AAI between genomes: %s' % outputFile)
+        self.logger.info('  Summary of AAI between genomes: %s' % output_file)
 
         fout.close()
 
-    def run(self, genomeIds, perIdentityThreshold, perAlnLenThreshold, outputDir, cpus):
+    def run(self, genome_ids, gene_dir, blast_dir, gene_ext, per_iden_threshold, per_aln_len_threshold, output_dir, cpus):
+        """Calculate amino acid identity (AAI) between pairs of genomes.
+
+        Parameters
+        ----------
+        genome_ids : list of str
+            Unique ids of genomes to process.
+        gene_dir : str
+            Directory with amino acid genes in fasta format.
+        blast_dir : str
+            Directory with reciprocal blast between genome pairs.
+        gene_ext : str
+            Extension of fasta files containing genes.
+        per_identity_threshold : float
+            Percent identity threshold used to define a homologous gene.
+        per_aln_len_threshold : float
+            Alignment length threshold used to define a homologous gene.
+        output_dir : str
+            Directory to store AAI results.
+        cpus : int
+            Number of cpus to use.
+        """
+
         self.logger.info('  Calculating amino acid identity between all pairs of genomes:')
 
-        # populate worker queue with data to process
-        workerQueue = mp.Queue()
-        writerQueue = mp.Queue()
+        # populate producer queue with data to process
+        producer_queue = mp.Queue()
+        genome_ids.sort(key=str.lower)
 
-        genomeIds.sort(key=str.lower)
-
-        numPairs = 0
-        for i in xrange(0, len(genomeIds)):
-            for j in xrange(i + 1, len(genomeIds)):
-                workerQueue.put((genomeIds[i], genomeIds[j]))
-                numPairs += 1
+        num_pairs = 0
+        for i in xrange(0, len(genome_ids)):
+            for j in xrange(i + 1, len(genome_ids)):
+                producer_queue.put((genome_ids[i], genome_ids[j]))
+                num_pairs += 1
 
         for _ in range(cpus):
-            workerQueue.put((None, None))
+            producer_queue.put((None, None))
 
         try:
-            workerProc = [mp.Process(target=self.__workerThread, args=(outputDir, perIdentityThreshold, perAlnLenThreshold, workerQueue, writerQueue)) for _ in range(cpus)]
-            writeProc = mp.Process(target=self.__writerThread, args=(numPairs, outputDir, writerQueue))
+            consumer_queue = mp.Queue()
 
-            writeProc.start()
+            producer_proc = [mp.Process(target=self.__producer, args=(gene_dir,
+                                                                        blast_dir,
+                                                                        gene_ext,
+                                                                        output_dir,
+                                                                        per_iden_threshold,
+                                                                        per_aln_len_threshold,
+                                                                        producer_queue,
+                                                                        consumer_queue)) for _ in range(cpus)]
+            write_proc = mp.Process(target=self.__consumer, args=(num_pairs, output_dir, consumer_queue))
 
-            for p in workerProc:
+            write_proc.start()
+
+            for p in producer_proc:
                 p.start()
 
-            for p in workerProc:
+            for p in producer_proc:
                 p.join()
 
-            writerQueue.put((None, None, None, None, None, None, None))
-            writeProc.join()
+            consumer_queue.put((None, None, None, None, None, None, None))
+            write_proc.join()
         except:
-            for p in workerProc:
+            for p in producer_proc:
                 p.terminate()
 
-                writeProc.terminate()
+            write_proc.terminate()

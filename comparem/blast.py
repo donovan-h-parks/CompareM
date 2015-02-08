@@ -25,111 +25,163 @@ __email__ = 'donovan.parks@gmail.com'
 import os
 import sys
 import subprocess
-import ntpath
 import logging
 import multiprocessing as mp
 
+from comparem.common import remove_extension
+
+"""
+*****************************************************************************
+To do:
+ - blast genome against itself to find duplicate genes.
+ - consider moving over to using 'diamond blastp'
+ -- need to compare blastp vs. diamond in terms of speed and results
+ -- diamond is not recommended for small datasets so it may not be ideal here
+ -- also it isn't as sensitive
+*****************************************************************************
+"""
+
 
 class Blast(object):
+    """Wrapper for running reciprocal blast in parallel."""
+
     def __init__(self):
+        """Initialization."""
         self.logger = logging.getLogger()
 
-        self._checkForBlast()
+        self._check_for_blast()
 
-    def _checkForBlast(self):
-        """Check to see if Blast is on the system before we try to run it."""
+    def _check_for_blast(self):
+        """Check to see if BLAST is on the system before we try to run it."""
         try:
             subprocess.call(['blastp', '-help'], stdout=open(os.devnull, 'w'), stderr=subprocess.STDOUT)
         except:
             self.logger.error("  Make sure blastp is on your system path.")
             sys.exit()
 
-    def __workerThread(self, outputDir, evalue, queueIn, queueOut):
+    def __producer(self, output_dir, evalue, extension, producer_queue, consumer_queue):
+        """Apply reciprocal blast to a pair of genomes.
+
+        Parameters
+        ----------
+        output_dir : str
+            Directory to store blast results.
+        evalue : float
+            E-value threshold used by blast.
+        extension : str
+            Extension of gene files.
+        producer_queue : queue
+            Queue containing pairs of genomes to process.
+        consumer_queue : queue
+            Queue to indicate completion of reciprocal blast.
+        """
+
         while True:
-            aaGeneFileA, aaGeneFileB = queueIn.get(block=True, timeout=None)
-            if aaGeneFileA == None:
+            aa_gene_fileA, aa_gene_fileB = producer_queue.get(block=True, timeout=None)
+            if aa_gene_fileA == None:
                 break
 
-            genomeIdA = ntpath.basename(aaGeneFileA)
-            genomeIdA = genomeIdA[0:genomeIdA.rfind('.genes.faa')]
+            genome_idA = remove_extension(aa_gene_fileA, extension)
+            genome_idB = remove_extension(aa_gene_fileB, extension)
 
-            genomeIdB = ntpath.basename(aaGeneFileB)
-            genomeIdB = genomeIdB[0:genomeIdB.rfind('.genes.faa')]
+            dbA = os.path.join(output_dir, genome_idA + '.db')
+            dbB = os.path.join(output_dir, genome_idB + '.db')
 
-            dbA = os.path.join(outputDir, genomeIdA + '.db')
-            dbB = os.path.join(outputDir, genomeIdB + '.db')
-
-            outputFileAB = os.path.join(outputDir, genomeIdA + '-' + genomeIdB + '.blastp.tsv')
-            cmd = "blastp -query %s -db %s -out %s -max_target_seqs 1 -evalue %s -outfmt '6 qseqid qlen sseqid slen length pident evalue bitscore'" % (aaGeneFileA, dbB, outputFileAB, str(evalue))
+            output_fileAB = os.path.join(output_dir, genome_idA + '-' + genome_idB + '.blastp.tsv')
+            cmd = "blastp -query %s -db %s -out %s -max_target_seqs 1 -evalue %s -outfmt '6 qseqid qlen sseqid slen length pident evalue bitscore'" % (aa_gene_fileA, dbB, output_fileAB, str(evalue))
             os.system(cmd)
 
-            outputFileBA = os.path.join(outputDir, genomeIdB + '-' + genomeIdA + '.blastp.tsv')
-            cmd = "blastp -query %s -db %s -out %s -max_target_seqs 1 -evalue %s -outfmt '6 qseqid qlen sseqid slen length pident evalue bitscore'" % (aaGeneFileB, dbA, outputFileBA, str(evalue))
+            output_fileBA = os.path.join(output_dir, genome_idB + '-' + genome_idA + '.blastp.tsv')
+            cmd = "blastp -query %s -db %s -out %s -max_target_seqs 1 -evalue %s -outfmt '6 qseqid qlen sseqid slen length pident evalue bitscore'" % (aa_gene_fileB, dbA, output_fileBA, str(evalue))
             os.system(cmd)
 
-            queueOut.put((aaGeneFileA, aaGeneFileB))
+            consumer_queue.put(aa_gene_fileA)
 
-    def __writerThread(self, numDataItems, writerQueue):
-        processedItems = 0
+    def __consumer(self, num_genome_pairs, consumer_queue):
+        """Track completion of reciprocal blast runs.
+
+        Parameters
+        ----------
+        num_genome_pairs : int
+            Number of genome pairs to processed.
+        consumer_queue : queue
+            Queue used to indicate completion of blast runs.
+        """
+
+        processed_items = 0
         while True:
-            aaGeneFileA, _ = writerQueue.get(block=True, timeout=None)
-            if aaGeneFileA == None:
-                break
-
-            processedItems += 1
-            statusStr = '    Finished processing %d of %d (%.2f%%) genome pairs.' % (processedItems, numDataItems, float(processedItems) * 100 / numDataItems)
+            statusStr = '    Finished processing %d of %d (%.2f%%) genome pairs.' % (processed_items, num_genome_pairs, float(processed_items) * 100 / num_genome_pairs)
             sys.stdout.write('%s\r' % statusStr)
             sys.stdout.flush()
 
+            aa_gene_fileA = consumer_queue.get(block=True, timeout=None)
+            if aa_gene_fileA == None:
+                break
+
+            processed_items += 1
+
         sys.stdout.write('\n')
 
-    def run(self, aaGeneFiles, evalue, outputDir, cpus):
+    def run(self, aa_gene_files, evalue, extension, output_dir, cpus):
+        """Apply reciprocal blast to all pairs of genomes in parallel.
+
+        Parameters
+        ----------
+        aa_gene_files : list of str
+            Amino acid fasta files to process via reciprocal blast.
+        evalue : float
+            E-value threshold used by blast.
+        extension : str
+            Extension of gene files.
+        output_dir : str
+            Directory to store blast results.
+        cpus : int
+            Number of cpus to use.
+        """
+
         # create the blast databases in serial
         self.logger.info('  Creating blast databases.')
 
-        for aaGeneFile in aaGeneFiles:
-            genomeId = ntpath.basename(aaGeneFile)
-            genomeId = genomeId[0:genomeId.rfind('.genes.faa')]
+        for aa_gene_file in aa_gene_files:
+            genome_id = remove_extension(aa_gene_file, extension)
 
-            blastDB = os.path.join(outputDir, genomeId + '.db')
-            logFile = os.path.join(outputDir, genomeId + '.log')
-            if not os.path.exists(blastDB):
-                cmd = 'makeblastdb -dbtype prot -in %s -out %s -logfile %s' % (aaGeneFile, blastDB, logFile)
+            blast_DB = os.path.join(output_dir, genome_id + '.db')
+            log_file = os.path.join(output_dir, genome_id + '.log')
+            if not os.path.exists(blast_DB):
+                cmd = 'makeblastdb -dbtype prot -in %s -out %s -logfile %s' % (aa_gene_file, blast_DB, log_file)
                 os.system(cmd)
 
         # perform blast in parallel
         self.logger.info('')
         self.logger.info('  Identifying blast hits between all pairs of genomes:')
 
-        # populate worker queue with data to process
-        workerQueue = mp.Queue()
-        writerQueue = mp.Queue()
-
-        numPairs = 0
-        for i in xrange(0, len(aaGeneFiles)):
-            for j in xrange(i + 1, len(aaGeneFiles)):
-                workerQueue.put((aaGeneFiles[i], aaGeneFiles[j]))
-                numPairs += 1
+        # populate producer queue with data to process
+        producer_queue = mp.Queue()
+        num_pairs = 0
+        for i in xrange(0, len(aa_gene_files)):
+            for j in xrange(i + 1, len(aa_gene_files)):
+                producer_queue.put((aa_gene_files[i], aa_gene_files[j]))
+                num_pairs += 1
 
         for _ in range(cpus):
-            workerQueue.put((None, None))
+            producer_queue.put((None, None))
 
         try:
-            workerProc = [mp.Process(target=self.__workerThread, args=(outputDir, evalue, workerQueue, writerQueue)) for _ in range(cpus)]
-            writeProc = mp.Process(target=self.__writerThread, args=(numPairs, writerQueue))
+            consumer_queue = mp.Queue()
+            producer_proc = [mp.Process(target=self.__producer, args=(output_dir, evalue, extension, producer_queue, consumer_queue)) for _ in range(cpus)]
+            consumer_proc = mp.Process(target=self.__consumer, args=(num_pairs, consumer_queue))
 
-            writeProc.start()
+            consumer_proc.start()
 
-            for p in workerProc:
+            for p in producer_proc:
                 p.start()
 
-            for p in workerProc:
+            for p in producer_proc:
                 p.join()
 
-            writerQueue.put((None, None))
-            writeProc.join()
+            consumer_queue.put(None)
+            consumer_proc.join()
         except:
-            for p in workerProc:
+            for p in producer_proc:
                 p.terminate()
-
-                writeProc.terminate()
+            consumer_proc.terminate()

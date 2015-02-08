@@ -37,14 +37,14 @@ class CodonUsage(object):
         """Initialization."""
         self.logger = logging.getLogger()
 
-    def run(self, geneFiles, bKeepAmbiguous):
+    def run(self, gene_files, keep_ambiguous):
         """Calculate codon usage over a set of genomes.
 
         Parameters
         ----------
-        geneFiles : list
+        gene_files : list
             Fasta files containing called genes.
-        bKeepAmbiguous: boolean
+        keep_ambiguous: boolean
             Keep codons with ambiguous bases.
 
         Returns
@@ -59,13 +59,13 @@ class CodonUsage(object):
 
         seqIO = SeqIO()
 
-        codonSet = set()
-        codonsInGenomes = defaultdict(lambda: defaultdict(int))
+        codon_set = set()
+        genomes_codon_usage = defaultdict(lambda: defaultdict(int))
 
-        processedItems = 0
-        for f in geneFiles:
-            processedItems += 1
-            statusStr = '    Finished processing %d of %d (%.2f%%) genomes.' % (processedItems, len(geneFiles), float(processedItems) * 100 / len(geneFiles))
+        processed_items = 0
+        for f in gene_files:
+            processed_items += 1
+            statusStr = '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, len(gene_files), float(processed_items) * 100 / len(gene_files))
             sys.stdout.write('%s\r' % statusStr)
             sys.stdout.flush()
 
@@ -75,10 +75,10 @@ class CodonUsage(object):
             for _seqId, seq in seqs.iteritems():
                 for i in xrange(0, len(seq), 3):
                     codon = seq[i:i + 3].upper()
-                    if bKeepAmbiguous or 'N' not in codon:
-                        codonSet.add(codon)
-                        codonsInGenomes[genomeId][codon] += 1
+                    if keep_ambiguous or 'N' not in codon:
+                        codon_set.add(codon)
+                        genomes_codon_usage[genomeId][codon] += 1
 
         sys.stdout.write('\n')
 
-        return codonsInGenomes, codonSet
+        return genomes_codon_usage, codon_set

@@ -63,68 +63,105 @@ class Parallel(object):
         """Initialization."""
         self.logger = logging.getLogger()
 
-    def __producer(self, producerCallback, producerQueue, consumerQueue):
-        """Process data items with worker thread."""
+    def __producer(self, producer_callback, producer_queue, consumer_queue):
+        """Process data items with producer processes.
+
+        Parameters
+        ----------
+        producer_callback : function
+            Function to process data items.
+        producer_queue : queue
+            Data items to process.
+        consumer_queue : queue
+            Queue for holding processed data items to be consumed.
+        """
         while True:
-            dataItem = producerQueue.get(block=True, timeout=None)
+            dataItem = producer_queue.get(block=True, timeout=None)
             if dataItem == None:
                 break
 
-            rtn = producerCallback(dataItem)
+            rtn = producer_callback(dataItem)
 
-            consumerQueue.put(rtn)
+            consumer_queue.put(rtn)
 
-    def __processManager(self, cpus, producerCallback, producerQueue, consumerQueue):
-        """Setup producer processes and manage completion of processes."""
+    def __process_manager(self, cpus, producer_callback, producer_queue, consumer_queue):
+        """Setup producer processes and manage completion of processes.
+
+        Parameters
+        ----------
+        cpus : int
+            Number of processes to create.
+        producer_callback : function
+            Function to process data items.
+        producer_queue : queue
+            Data items to process.
+        consumer_queue : queue
+            Queue for holding processed data items to be consumed.
+
+        """
 
         try:
-            producerProc = [mp.Process(target=self.__producer, args=(producerCallback, producerQueue, consumerQueue)) for _ in range(cpus)]
+            producer_proc = [mp.Process(target=self.__producer, args=(producer_callback, producer_queue, consumer_queue)) for _ in range(cpus)]
 
-            for p in producerProc:
+            for p in producer_proc:
                 p.start()
 
-            for p in producerProc:
+            for p in producer_proc:
                 p.join()
 
-            consumerQueue.put(None)
+            consumer_queue.put(None)
         except:
-            for p in producerProc:
+            for p in producer_proc:
                 p.terminate()
 
-    def run(self, producer, consumer, dataItems, cpus):
-        """Setup producers and consumer processes."""
+    def run(self, producer, consumer, data_items, cpus):
+        """Setup producers and consumer processes.
+
+
+        Parameters
+        ----------
+        producer : function
+            Function to process data items.
+        consumer : queue
+            Function to consumed processed data items.
+        data_items : list
+            Data items to process.
+        cpus : int
+            Number of processes to create.
+        """
 
         # populate producer queue with data to process
-        consumerQueue = mp.Queue()
-        producerQueue = mp.Queue()
-        for d in dataItems:
-            producerQueue.put(d)
+        producer_queue = mp.Queue()
+        for d in data_items:
+            producer_queue.put(d)
 
         for _ in range(cpus):
-            producerQueue.put(None)  # signal processes to terminate
+            producer_queue.put(None)  # signal processes to terminate
 
         try:
+            consumer_queue = mp.Queue()
+            manager_proc = mp.Process(target=self.__process_manager, args=(cpus, producer, producer_queue, consumer_queue))
 
-            mangerProc = mp.Process(target=self.__processManager, args=(cpus, producer, producerQueue, consumerQueue))
-
-            mangerProc.start()
+            manager_proc.start()
 
             # process items produced by workers
-            processedItems = 0
+            processed_items = 0
             while True:
-                rtn = consumerQueue.get(block=True, timeout=None)
+                status = '    Finished processing %d of %d (%.2f%%) items.' % (processed_items, len(data_items), float(processed_items) * 100 / len(data_items))
+                sys.stdout.write('%s\r' % status)
+                sys.stdout.flush()
+
+                rtn = consumer_queue.get(block=True, timeout=None)
                 if rtn == None:
                     break
 
                 consumer(rtn)
 
-                processedItems += 1
-                statusStr = '    Finished processing %d of %d (%.2f%%) items.' % (processedItems, len(dataItems), float(processedItems) * 100 / len(dataItems))
-                sys.stdout.write('%s\r' % statusStr)
-                sys.stdout.flush()
+                processed_items += 1
 
             sys.stdout.write('\n')
 
-            mangerProc.join()
+            manager_proc.join()
         except:
-            mangerProc.terminate()
+            self.logger.warning('  [Warning] Exception encountered while processing data.')
+            manager_proc.terminate()

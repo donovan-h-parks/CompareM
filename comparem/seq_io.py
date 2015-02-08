@@ -28,6 +28,7 @@ import gzip
 
 class SeqIO(object):
     def __init__(self):
+        """Initialization."""
         pass
 
     def read_fasta(self, fasta_file):
@@ -45,12 +46,12 @@ class SeqIO(object):
         """
         try:
             if fasta_file.endswith('.gz'):
-                openFile = gzip.open
+                open_file = gzip.open
             else:
-                openFile = open
+                open_file = open
 
             seqs = {}
-            for line in openFile(fasta_file):
+            for line in open_file(fasta_file):
                 # skip blank lines
                 if not line.strip():
                     continue
@@ -94,13 +95,13 @@ class SeqIO(object):
         """
         try:
             if fasta_file.endswith('.gz'):
-                openFile = gzip.open
+                open_file = gzip.open
             else:
-                openFile = open
+                open_file = open
 
             seq_id = None
             seq = None
-            for line in openFile(fasta_file):
+            for line in open_file(fasta_file):
                 # skip blank lines
                 if not line.strip():
                     continue
@@ -151,35 +152,6 @@ class SeqIO(object):
             seqs[seq_id] = ''.join(seq)
 
         return seqs
-
-    def read_total_bases(self, fasta_file):
-        """Read total number of bases in fasta file.
-
-        Parameters
-        ----------
-        fasta_file : str
-            Name of fasta file to read.
-
-        Returns
-        -------
-        int
-            Number of bases across all sequences.
-        """
-        try:
-            if fasta_file.endswith('.gz'):
-                openFile = gzip.open
-            else:
-                openFile = open
-
-            num_bases = 0
-            for line in openFile(fasta_file):
-                if line[0] != '>':
-                    num_bases += len(line[0:-1])
-        except:
-            print  "[Error] Failed to process sequence file: " + fasta_file
-            sys.exit()
-
-        return num_bases
 
     def write_fasta(self, seqs, output_file):
         """Write sequences to fasta file.

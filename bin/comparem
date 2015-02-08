@@ -31,7 +31,18 @@ import sys
 import argparse
 
 from comparem.main import OptionsParser
-from comparem.parallel import Parallel
+from comparem.custom_help_formatter import CustomHelpFormatter
+
+"""
+*****************************************************************************
+To do:
+ - average nucleotide identity
+ -- need to explore different methods for calculating this
+ -- simplest would seem to be fragmenting a genome into fix sized
+    windows and using blastn, but I know more recent papers have
+    argued against this approach and have preferred using mummer
+*****************************************************************************
+"""
 
 
 def version():
@@ -45,20 +56,20 @@ def print_help():
     print '                ...::: CompareM v' + version() + ' :::...'''
     print '''\
 
-  A toolbox for comparative genomics.
+    aai_wf -> Run call_genes, blast, and aai
+     call_genes  -> Identify genes within genomes
+     blast       -> Perform reciprocal blast between genome pairs
+     aai         -> Identify the AAI between homologs in genome pairs
 
-    call_genes  -> Identify genes within genomes
-    ortholog    -> Identify orthologs within genomes
-    calculate   -> Calculate AAI between orthologs
+    gene_wf -> Run core, dispensable, and unique
+     core        -> [Not implemented] Identify genes contained in all genomes
+     dispensable -> [Not implemented] Identify genes contained in more than one, but not all genomes
+     unique      -> [Not implemented] Identify genes present in a single genome
 
-    aai_wf      -> Runs call_genes, ortholog, and calculate
+    genome_stats -> [Not implemented] Calculate statistics for each genome (e.g., GC, coding density)
 
     aa_usage    -> Calculate amino acid usage within each genome
     codon_usage -> Calculate codon usage within each genome
-
-    core        -> [Not implemented] Identify genes contained in all genomes
-    dispensable -> [Not implemented] Identify genes contained in more than one, but not all genomes
-    unique      -> [Not implemented] Identify genes present in a single genome
 
     pcoa_plot    -> [Not implemented] Generate PCoA plot indicating relative similarity of genomes
 
@@ -76,67 +87,73 @@ if __name__ == '__main__':
 
     # identify genes within genomes
     call_genes_parser = subparsers.add_parser('call_genes',
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        formatter_class=CustomHelpFormatter,
                                         description='Identify genes within genomes.')
     call_genes_parser.add_argument('genome_dir', help="directory containing genomes")
     call_genes_parser.add_argument('output_dir', help="output directory")
-    call_genes_parser.add_argument('-g', '--genes', dest='bCalledGenes', action="store_true", default=False, help="files in genome directory contain genes as amino acids")
-    call_genes_parser.add_argument('-x', '--extension', default='fna', help="extension of genomes (other files in folder are ignored)")
+    call_genes_parser.add_argument('-g', '--genes', action="store_true", default=False, help="files in genome directory contain genes as amino acids")
+    call_genes_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in folder are ignored)")
     call_genes_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
 
-    # identify orthologs within genomes
-    ortholog_parser = subparsers.add_parser('ortholog',
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                        description='Identify orthologs within genomes.')
-    ortholog_parser.add_argument('output_dir', help="output directory (same specific with 'call_genes')")
-    ortholog_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
-    ortholog_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+    # run reciprocal blast between genome pairs
+    blast_parser = subparsers.add_parser('blast',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Perform reciprocal blast between genome pairs.')
+    blast_parser.add_argument('gene_dir', help="directory containing amino acid genes in fasta format")
+    blast_parser.add_argument('output_dir', help="output directory")
+    blast_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
+    blast_parser.add_argument('--gene_ext', default='genes.faa', help="extension of gene files (other files in folder are ignored)")
+    blast_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
 
-    # calculate AAI between orthologs
-    calculate_parser = subparsers.add_parser('calculate',
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                        description='Calculate AAI between orthologs.')
-    calculate_parser.add_argument('output_dir', help="output directory (same specific with 'call_genes')")
-    calculate_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
-    calculate_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining othology")
-    calculate_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+    # calculate AAI between homologs genes
+    aai_parser = subparsers.add_parser('aai',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Identify the AAI between homologs in genome pairs.')
+    aai_parser.add_argument('gene_dir', help="directory containing amino acid genes in fasta format")
+    aai_parser.add_argument('blast_dir', help="directory containing results of reciprocal blast between genome pairs")
+    aai_parser.add_argument('output_dir', help="output directory (same specific with 'call_genes')")
+    aai_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
+    aai_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
+    aai_parser.add_argument('--gene_ext', default='genes.faa', help="extension of gene files (other files in folder are ignored)")
+    aai_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
 
-    # runs call_genes, ortholog, and calculate
+    # runs call_genes, blast, and calculate
     aai_wf_parser = subparsers.add_parser('aai_wf',
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-                                        description='Runs call_genes, ortholog, and calculate.')
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Runs call_genes, blast, and calculate.')
     aai_wf_parser.add_argument('genome_dir', help="directory containing genomes")
     aai_wf_parser.add_argument('output_dir', help="output directory")
-    aai_wf_parser.add_argument('-g', '--genes', dest='bCalledGenes', action="store_true", default=False, help="files in genome directory contain genes as amino acids")
-    aai_wf_parser.add_argument('-x', '--extension', default='fna', help="extension of genomes (other files in folder are ignored)")
+    aai_wf_parser.add_argument('-g', '--genes', action="store_true", default=False, help="files in genome directory contain genes as amino acids")
     aai_wf_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
-    aai_wf_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
-    aai_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining othology")
+    aai_wf_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
+    aai_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
+    aai_wf_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in folder are ignored)")
     aai_wf_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
 
     # calculate amino acid usage
     aa_usage_parser = subparsers.add_parser('aa_usage',
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        formatter_class=CustomHelpFormatter,
                                         description='Calculate amino acid usage within each genome.')
-    aa_usage_parser.add_argument('input_dir', help="directory containing fasta files with called genes in amino acid space")
+    aa_usage_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in amino acid space")
     aa_usage_parser.add_argument('output_file', help="file indicating genes amino acid usage for each genome")
-    aa_usage_parser.add_argument('-x', '--extension', default='.genes.faa', help="extension of fasta files with called genes (other files are ignored)")
+    aa_usage_parser.add_argument('--gene_ext', default='genes.faa', help="extension of gene files (other files in folder are ignored)")
     aa_usage_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
 
     # calculate codon usage
     codon_parser = subparsers.add_parser('codon_usage',
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        formatter_class=CustomHelpFormatter,
                                         description='Calculate codon usage within each genome.')
-    codon_parser.add_argument('input_dir', help="directory containing fasta files with called genes in nucleotide space")
+    codon_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
     codon_parser.add_argument('output_file', help="output file indicating codon usage of each genome")
-    codon_parser.add_argument('-x', '--extension', default='.genes.fna', help="extension of fasta files with called genes (other files are ignored)")
+    codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in folder are ignored)")
     codon_parser.add_argument('--keep_ambiguous', action='store_true', help="keep codons with ambiguous bases")
+    codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
 
-    # calculate AAI between orthologs
+    # unique
     unique_parser = subparsers.add_parser('unique',
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        formatter_class=CustomHelpFormatter,
                                         description='Identify genes present in a single genome.')
-    unique_parser.add_argument('output_dir', help="output directory specific with 'ortholog'")
+    unique_parser.add_argument('gene_dir', help="output directory specific with 'ortholog'")
     unique_parser.add_argument('output_file', help="file indicating genes identified as unique to a single genome")
     unique_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
     unique_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
@@ -144,7 +161,7 @@ if __name__ == '__main__':
 
     # produce PCoA plot
     pcoa_plot_parser = subparsers.add_parser('pcoa_plot',
-                                        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+                                        formatter_class=CustomHelpFormatter,
                                         description='Generate PCoA plot indicating relative similarity of genomes.')
     pcoa_plot_parser.add_argument('aai_summary_file', help="file indicating pairwise AAI between genomes")
     pcoa_plot_parser.add_argument('output_file', help="output PCA plot")

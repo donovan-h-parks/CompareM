@@ -27,33 +27,40 @@ import matplotlib.pyplot as plt
 
 
 class PCoA:
-    """http://stackoverflow.com/questions/1730600/principal-component-analysis-in-python"""
+    """Perform principal coordinate analysis (PCoA).
+
+    [THIS CLASS NEEDS SERIOUS WORK. IT SHOULD BE GENERALIZED TO PROCESS ANY DATA MATRIX.]
+
+    http://stackoverflow.com/questions/1730600/principal-component-analysis-in-python
+    """
+
     def __init__(self):
+        """Initialization."""
         pass
 
-    def plot(self, aaiSummaryFile):
+    def plot(self, aai_summary_file):
         # create matrix from pairwise comparisons
         matrix = defaultdict(dict)
-        with open(aaiSummaryFile) as f:
+        with open(aai_summary_file) as f:
             f.readline()
             for line in f:
-                lineSplit = line.split('\t')
-                genomeA = lineSplit[0]
-                genomeB = lineSplit[2]
-                aai = float(lineSplit[5])
+                line_split = line.split('\t')
+                genomeA = line_split[0]
+                genomeB = line_split[2]
+                aai = float(line_split[5])
 
                 matrix[genomeA][genomeB] = aai
                 matrix[genomeB][genomeA] = aai
 
         data = np.array([])
-        sampleIds = matrix.keys()
-        for i, sampleIdI in enumerate(sampleIds):
+        sample_ids = matrix.keys()
+        for i, sample_idI in enumerate(sample_ids):
             row = []
-            for j, sampleIdJ in enumerate(sampleIds):
+            for j, sample_idJ in enumerate(sample_ids):
                 if i == j:
                     row.append(0)
                 else:
-                    row.append(1.0 - matrix[sampleIdI][sampleIdJ] / 100.0)
+                    row.append(1.0 - matrix[sample_idI][sample_idJ] / 100.0)
 
             data = np.append(data, row)
 
@@ -73,7 +80,7 @@ class PCoA:
             coords[:, 0], coords[:, 1], marker='o'
             )
 
-        for label, x, y in zip(sampleIds, coords[:, 0], coords[:, 1]):
+        for label, x, y in zip(sample_ids, coords[:, 0], coords[:, 1]):
             plt.annotate(
                 label,
                 xy=(x, y), xytext=(-20, 20),

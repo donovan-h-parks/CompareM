@@ -8,7 +8,7 @@ def version():
     return versionFile.read().strip()
 
 setup(
-    name='CompareM',
+    name='comparem',
     version=version(),
     author='Donovan Parks',
     author_email='donovan.parks@gmail.com',

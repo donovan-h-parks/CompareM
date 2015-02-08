@@ -23,6 +23,7 @@ import os
 import errno
 import sys
 import logging
+import ntpath
 
 
 def check_file_exists(input_file):
@@ -50,3 +51,13 @@ def make_sure_path_exists(path):
             logger = logging.getLogger()
             logger.error('  [Error] Specified path does not exist: ' + path + '\n')
             sys.exit()
+
+
+def remove_extension(filename, extension):
+    """Remove specified extension from filename."""
+    f = ntpath.basename(filename)
+    f = f[0:f.rfind(extension)]
+    if f[-1] == '.':
+        f = f[0:-1]
+
+    return f
