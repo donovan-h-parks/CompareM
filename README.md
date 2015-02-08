@@ -5,8 +5,9 @@
 CompareM is a comparative genomics toolbox. It provides statistics across groups of genomes (e.g., amino acid identity; core, dispensible, and unique gene sets) and for individual genomes (e.g., GC content, coding density). Emphasis has been placed on providing parallelized implementations for calculating statistics in order to allow scalability to tens of thousands of genomes. The functionality currently planned is:
 
 <i>Comparative genomic statistics:</i>
-* calculation of the amino acid identity between genomes
-* identification of core, dispensible, and unique gene sets
+* average amino acid identity (AAI) between genomes
+* average nucleotide identity (ANI) between genomes
+* core, dispensible, and unique gene sets
 
 <i>Single genome statistics:</i>
 * GC content
