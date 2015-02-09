@@ -24,6 +24,7 @@ __email__ = 'donovan.parks@gmail.com'
 
 import sys
 import logging
+import traceback
 import multiprocessing as mp
 
 
@@ -43,20 +44,26 @@ class Parallel(object):
     Example:
 
         class Test(object):
-            def __init__(self):
-                self.total = 0
-
             def _producer(self, data):
                 return data * data
 
-            def _consumer(self, dataSquard):
-                self.total += dataSquard
+            def _consumer(self, produced_data, consumer_data):
+                if consumer_data == None:
+                    # setup structure for consumed data
+                    consumer_data = 0
+
+                consumer_data += produced_data
+
+                return consumer_data
 
             def run(self):
                 parallel = Parallel()
-                parallel.run(self._producer, self._consumer, [1, 2, 3, 4, 5], 2)
+                consumer_data = parallel.run(self._producer,
+                                                self._consumer,
+                                                data_items = [1, 2, 3, 4, 5],
+                                                cpus = 2)
 
-                print self.total
+                print consumer_data
     """
 
     def __init__(self):
@@ -97,7 +104,6 @@ class Parallel(object):
             Data items to process.
         consumer_queue : queue
             Queue for holding processed data items to be consumed.
-
         """
 
         try:
@@ -114,9 +120,8 @@ class Parallel(object):
             for p in producer_proc:
                 p.terminate()
 
-    def run(self, producer, consumer, data_items, cpus):
+    def run(self, producer, consumer, data_items, cpus, progress=None):
         """Setup producers and consumer processes.
-
 
         Parameters
         ----------
@@ -128,6 +133,13 @@ class Parallel(object):
             Data items to process.
         cpus : int
             Number of processes to create.
+        progress : function
+            Function to report progress string.
+
+        Returns
+        -------
+        <user specified>
+            Set by caller in the consumer function.
         """
 
         # populate producer queue with data to process
@@ -145,23 +157,30 @@ class Parallel(object):
             manager_proc.start()
 
             # process items produced by workers
-            processed_items = 0
+            items_processed = 0
+            consumer_data = None
             while True:
-                status = '    Finished processing %d of %d (%.2f%%) items.' % (processed_items, len(data_items), float(processed_items) * 100 / len(data_items))
-                sys.stdout.write('%s\r' % status)
-                sys.stdout.flush()
+                if progress:
+                    status = progress(items_processed, len(data_items))
+                    sys.stdout.write('%s\r' % status)
+                    sys.stdout.flush()
 
-                rtn = consumer_queue.get(block=True, timeout=None)
-                if rtn == None:
+                produced_data = consumer_queue.get(block=True, timeout=None)
+                if produced_data == None:
                     break
 
-                consumer(rtn)
+                consumer_data = consumer(produced_data, consumer_data)
 
-                processed_items += 1
+                items_processed += 1
 
-            sys.stdout.write('\n')
+            if progress:
+                sys.stdout.write('\n')
 
             manager_proc.join()
-        except:
+
+            return consumer_data
+        except Exception, _err:
+            print sys.exc_info()[0]
+            print traceback.format_exc()
             self.logger.warning('  [Warning] Exception encountered while processing data.')
             manager_proc.terminate()

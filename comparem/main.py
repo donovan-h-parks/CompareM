@@ -188,7 +188,7 @@ class OptionsParser():
         files = os.listdir(options.gene_dir)
         for f in files:
             if f.endswith(options.gene_ext):
-                gene_files.append(os.path.join(options.input_dir, f))
+                gene_files.append(os.path.join(options.gene_dir, f))
 
         # warn use if no files were found
         if len(gene_files) == 0:
@@ -196,20 +196,20 @@ class OptionsParser():
             return
 
         # calculate amino acid usage
-        codon_usage = CodonUsage()
-        genome_codon_usage, codon_set = codon_usage.run(gene_files, options.keep_ambiguous)
+        codon_usage = CodonUsage(options.keep_ambiguous)
+        genome_codon_usage, codon_set = codon_usage.run(gene_files, options.cpus)
 
         # write out results
         fout = open(options.output_file, 'w')
-        for aa in codon_set:
-            fout.write('\t' + aa)
+        for codon in codon_set:
+            fout.write('\t' + codon)
         fout.write('\n')
 
         for genomeId, codons in genome_codon_usage.iteritems():
             fout.write(genomeId)
 
-            for aa in codon_set:
-                fout.write('\t%d' % codons.get(aa, 0))
+            for codon in codon_set:
+                fout.write('\t%d' % codons.get(codon, 0))
             fout.write('\n')
 
         self.logger.info('')

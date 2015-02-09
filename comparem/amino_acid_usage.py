@@ -24,7 +24,7 @@ __email__ = 'donovan.parks@gmail.com'
 
 import logging
 import ntpath
-from collections import defaultdict
+from collections import defaultdict, namedtuple
 
 from comparem.seq_io import SeqIO
 from comparem.parallel import Parallel
@@ -36,12 +36,6 @@ class AminoAcidUsage(object):
     def __init__(self):
         """Initialization."""
         self.logger = logging.getLogger()
-
-        # class variables used by consumer function
-        # in a producer/consumer multiprocessing
-        # framework
-        self.genome_aa_usage = dict()
-        self.aa_set = set()
 
     def amino_acid_usage(self, seqs):
         """ Calculate amino acid usage within sequences.
@@ -97,7 +91,7 @@ class AminoAcidUsage(object):
 
         return [genome_id, aa_usage]
 
-    def _consumer(self, data):
+    def _consumer(self, produced_data, consumer_data):
         """Consume results from producer processes.
 
         This function is intended to be used as a
@@ -108,14 +102,48 @@ class AminoAcidUsage(object):
 
          Parameters
         ----------
-        data : list -> [genome_id, aa_usage]
+        produced_data : list -> [genome_id, aa_usage]
             Unique id of a genome followed by a dictionary
             indicating its amino acid usage.
-        """
-        genome_id, aa_usage = data
+        consumer_data : namedtuple
+            Set of amino acids observed across all genomes (aa_set),
+            along with the amino acid usage of each genome (genome_aa_usage).
 
-        self.aa_set.update(aa_usage.keys())
-        self.genome_aa_usage[genome_id] = aa_usage
+        Returns
+        -------
+        consumer_data
+            The consumer data structure or None must be returned
+        """
+
+        if consumer_data == None:
+            # setup data to be returned by consumer
+            ConsumerData = namedtuple('ConsumerData', 'aa_set genome_aa_usage')
+            consumer_data = ConsumerData(set(), dict())
+
+        genome_id, aa_usage = produced_data
+
+        consumer_data.aa_set.update(aa_usage.keys())
+        consumer_data.genome_aa_usage[genome_id] = aa_usage
+
+        return consumer_data
+
+    def _progress(self, processed_items, total_items):
+        """Report progress of consumer processes.
+
+        Parameters
+        ----------
+        processed_items : int
+            Number of genomes processed.
+        total_items : int
+            Total number of genomes to process.
+
+        Returns
+        -------
+        str
+            String indicating progress of data processing.
+        """
+
+        return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
     def run(self, gene_files, cpus):
         """Calculate amino acid usage over a set of genomes.
@@ -138,6 +166,6 @@ class AminoAcidUsage(object):
         self.logger.info('  Calculating amino acid usage for each genome:')
 
         parallel = Parallel()
-        parallel.run(self._producer, self._consumer, gene_files, cpus)
+        consumer_data = parallel.run(self._producer, self._consumer, gene_files, cpus, self._progress)
 
-        return self.genome_aa_usage, self.aa_set
+        return consumer_data.genome_aa_usage, consumer_data.aa_set

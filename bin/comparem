@@ -41,6 +41,9 @@ To do:
  -- simplest would seem to be fragmenting a genome into fix sized
     windows and using blastn, but I know more recent papers have
     argued against this approach and have preferred using mummer
+
+- many of the classes should migrate over to use the Parallel class
+-- e.g., blast.py
 *****************************************************************************
 """
 
