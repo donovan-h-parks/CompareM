@@ -30,21 +30,9 @@ import logging
 from comparem.common import remove_extension
 from comparem.parallel import Parallel
 
-"""
-*****************************************************************************
-To do:
- - blast genome against itself to find duplicate genes.
- - consider moving over to using 'diamond blastp'
- -- need to compare blastp vs. diamond in terms of speed and results
- -- diamond is not recommended for small datasets so it may not be ideal here
- -- also it isn't as sensitive
- -- also need to work out parsing of diamond results (no seq length info)
-*****************************************************************************
-"""
 
-
-class Blast(object):
-    """Wrapper for running reciprocal blast in parallel."""
+class Diamond(object):
+    """Wrapper for running reciprocal blast in parallel with diamond."""
 
     def __init__(self, cpus, evalue, extension, output_dir):
         """Initialization.
@@ -62,19 +50,19 @@ class Blast(object):
         """
         self.logger = logging.getLogger()
 
-        self._check_for_blast()
+        self._check_for_diamond()
 
         self.cpus = cpus
         self.evalue = evalue
         self.extension = extension
         self.output_dir = output_dir
 
-    def _check_for_blast(self):
+    def _check_for_diamond(self):
         """Check to see if BLAST is on the system before we try to run it."""
         try:
-            subprocess.call(['blastp', '-help'], stdout=open(os.devnull, 'w'), stderr=subprocess.STDOUT)
+            subprocess.call(['diamond', '-h'], stdout=open(os.devnull, 'w'), stderr=subprocess.STDOUT)
         except:
-            self.logger.error("  Make sure blastp is on your system path.")
+            self.logger.error("  Make sure diamond is on your system path.")
             sys.exit()
 
     def _producer_blast(self, genome_pair):
@@ -82,10 +70,8 @@ class Blast(object):
 
         Parameters
         ----------
-        producer_queue : queue
-            Queue containing pairs of genomes to process.
-        consumer_queue : queue
-            Queue to indicate completion of reciprocal blast.
+        genome_pair : list
+            Fasta files with genes in amino acid space for each genome.
         """
         aa_gene_fileA, aa_gene_fileB = genome_pair
 
@@ -96,11 +82,11 @@ class Blast(object):
         dbB = os.path.join(self.output_dir, genome_idB + '.db')
 
         output_fileAB = os.path.join(self.output_dir, genome_idA + '-' + genome_idB + '.blastp.tsv')
-        cmd = "blastp -query %s -db %s -out %s -max_target_seqs 1 -evalue %s -outfmt '6 qseqid qlen sseqid slen length pident evalue bitscore'" % (aa_gene_fileA, dbB, output_fileAB, str(self.evalue))
+        cmd = "diamond blastp --compress 0 -p %d -q %s -d %s -o %s -k 1 -e %s" % (self.producer_cpus, aa_gene_fileA, dbB, output_fileAB, str(self.evalue))
         os.system(cmd)
 
         output_fileBA = os.path.join(self.output_dir, genome_idB + '-' + genome_idA + '.blastp.tsv')
-        cmd = "blastp -query %s -db %s -out %s -max_target_seqs 1 -evalue %s -outfmt '6 qseqid qlen sseqid slen length pident evalue bitscore'" % (aa_gene_fileB, dbA, output_fileBA, str(self.evalue))
+        cmd = "diamond blastp --compress 0 -p %d -q %s -d %s -o %s -k 1 -e %s" % (self.producer_cpus, aa_gene_fileB, dbA, output_fileBA, str(self.evalue))
         os.system(cmd)
 
         return True
@@ -117,8 +103,7 @@ class Blast(object):
         genome_id = remove_extension(aa_gene_file, self.extension)
 
         blast_DB = os.path.join(self.output_dir, genome_id + '.db')
-        log_file = os.path.join(self.output_dir, genome_id + '.log')
-        cmd = 'makeblastdb -dbtype prot -in %s -out %s -logfile %s' % (aa_gene_file, blast_DB, log_file)
+        cmd = 'diamond makedb -p %d --in %s -d %s' % (self.producer_cpus, aa_gene_file, blast_DB)
         os.system(cmd)
 
         return True
@@ -149,6 +134,11 @@ class Blast(object):
         aa_gene_files : list of str
             Amino acid fasta files to process via reciprocal blast.
         """
+
+        # set CPUs per consumer
+        self.producer_cpus = 1
+        if self.cpus > len(aa_gene_files):
+            self.producer_cpus = self.cpus / aa_gene_files
 
         # create the blast databases in serial
         self.logger.info('  Creating blast databases:')

@@ -29,10 +29,10 @@ import ntpath
 import logging
 import tempfile
 import shutil
-import multiprocessing as mp
 
 from comparem.seq_io import SeqIO
 from comparem.common import check_file_exists
+from comparem.parallel import Parallel
 
 import numpy as np
 
@@ -40,11 +40,26 @@ import numpy as np
 class Prodigal(object):
     """Wrapper for running Prodigal in parallel."""
 
-    def __init__(self):
-        """Initialization."""
+    def __init__(self, cpus, called_genes, output_dir):
+        """Initialization.
+
+        Parameters
+        ----------
+        cpus : int
+            Number of cpus to use.
+        called_genes : boolean
+            Flag indicating genes are already called.
+        output_dir : str
+            Directory to store called genes.
+        """
+
         self.logger = logging.getLogger()
 
         self._check_for_prodigal()
+
+        self.cpus = cpus
+        self.called_genes = called_genes
+        self.output_dir = output_dir
 
     def _check_for_prodigal(self):
         """Check to see if Prodigal is on the system before we try to run it."""
@@ -54,162 +69,112 @@ class Prodigal(object):
             self.logger.info("  Make sure prodigal is on your system path.")
             sys.exit()
 
-    def __producer(self, called_genes, output_dir, producer_queue, consumer_queue):
-        """Apply reciprocal blast to a pair of genomes.
+    def _producer(self, genome_file):
+        """Apply prodigal to genome with most suitable translation table.
 
         Parameters
         ----------
-        called_genes : boolean
-            Flag indicating genes are already called.
-        output_dir : str
-            Directory to store called genes.
-        producer_queue : queue
-            Queue containing fasta files to process.
-        consumer_queue : queue
-            Queue to indicate completion of prodigal.
+        genome_file : queue
+            Fasta file for genome.
         """
 
-        while True:
-            genome_file = producer_queue.get(block=True, timeout=None)
-            if genome_file == None:
-                break
+        genome_id = ntpath.basename(genome_file)
+        genome_id = genome_id[0:genome_id.rfind('.')]
 
-            genome_id = ntpath.basename(genome_file)
-            genome_id = genome_id[0:genome_id.rfind('.')]
+        aa_gene_file = os.path.join(self.output_dir, genome_id + '.genes.faa')
+        nt_gene_file = os.path.join(self.output_dir, genome_id + '.genes.fna')
+        gff_file = os.path.join(self.output_dir, genome_id + '.gff')
 
-            aa_gene_file = os.path.join(output_dir, genome_id + '.genes.faa')
-            nt_gene_file = os.path.join(output_dir, genome_id + '.genes.fna')
-            gff_file = os.path.join(output_dir, genome_id + '.gff')
+        if self.called_genes:
+            os.system('ln -s %s %s' % (os.path.abspath(genome_file), aa_gene_file))
+        else:
+            tmp_dir = tempfile.mkdtemp()
 
-            if called_genes:
-                os.system('ln -s %s %s' % (os.path.abspath(genome_file), aa_gene_file))
-            else:
-                tmp_dir = tempfile.mkdtemp()
+            seqIO = SeqIO()
+            seqs = seqIO.read_fasta(genome_file)
 
-                seqIO = SeqIO()
-                seqs = seqIO.read_fasta(genome_file)
+            # determine number of bases
+            total_bases = 0
+            for seq in seqs.values():
+                total_bases += len(seq)
 
-                # determine number of bases
-                total_bases = 0
-                for seq in seqs.values():
-                    total_bases += len(seq)
+            # call genes under different translation tables
+            table_coding_density = {}
+            for translation_table in [4, 11]:
+                os.makedirs(os.path.join(tmp_dir, str(translation_table)))
+                aa_gene_file_tmp = os.path.join(tmp_dir, str(translation_table), genome_id + '.genes.faa')
+                nt_gene_file_tmp = os.path.join(tmp_dir, str(translation_table), genome_id + '.genes.fna')
+                gff_file_tmp = os.path.join(tmp_dir, str(translation_table), genome_id + '.gff')
 
-                # call genes under different translation tables
-                table_coding_density = {}
-                for translation_table in [4, 11]:
-                    os.makedirs(os.path.join(tmp_dir, str(translation_table)))
-                    aa_gene_file_tmp = os.path.join(tmp_dir, str(translation_table), genome_id + '.genes.faa')
-                    nt_gene_file_tmp = os.path.join(tmp_dir, str(translation_table), genome_id + '.genes.fna')
-                    gff_file_tmp = os.path.join(tmp_dir, str(translation_table), genome_id + '.gff')
+                # check if there is sufficient bases to calculate prodigal parameters
+                if total_bases < 100000:
+                    proc_str = 'meta'  # use best precalculated parameters
+                else:
+                    proc_str = 'single'  # estimate parameters from data
 
-                    # check if there is sufficient bases to calculate prodigal parameters
-                    if total_bases < 100000:
-                        proc_str = 'meta'  # use best precalculated parameters
-                    else:
-                        proc_str = 'single'  # estimate parameters from data
+                cmd = 'prodigal -p %s -q -f gff -g %d -a %s -d %s -i %s > %s 2> /dev/null' % (proc_str,
+                                                                                              translation_table,
+                                                                                              aa_gene_file_tmp,
+                                                                                              nt_gene_file_tmp,
+                                                                                              genome_file,
+                                                                                              gff_file_tmp)
+                os.system(cmd)
 
-                    cmd = 'prodigal -p %s -q -f gff -g %d -a %s -d %s -i %s > %s 2> /dev/null' % (proc_str,
-                                                                                                  translation_table,
-                                                                                                  aa_gene_file_tmp,
-                                                                                                  nt_gene_file_tmp,
-                                                                                                  genome_file,
-                                                                                                  gff_file_tmp)
-                    os.system(cmd)
+                # determine coding density
+                prodigalParser = ProdigalGeneFeatureParser(gff_file_tmp)
 
-                    # determine coding density
-                    prodigalParser = ProdigalGeneFeatureParser(gff_file_tmp)
+                codingBases = 0
+                for seq_id, seq in seqs.iteritems():
+                    codingBases += prodigalParser.coding_bases(seq_id)
 
-                    codingBases = 0
-                    for seq_id, seq in seqs.iteritems():
-                        codingBases += prodigalParser.coding_bases(seq_id)
+                codingDensity = float(codingBases) / total_bases
+                table_coding_density[translation_table] = codingDensity
 
-                    codingDensity = float(codingBases) / total_bases
-                    table_coding_density[translation_table] = codingDensity
+            # determine best translation table
+            best_translation_table = 11
+            if (table_coding_density[4] - table_coding_density[11] > 0.05) and table_coding_density[4] > 0.7:
+                best_translation_table = 4
 
-                # determine best translation table
-                best_translation_table = 11
-                if (table_coding_density[4] - table_coding_density[11] > 0.05) and table_coding_density[4] > 0.7:
-                    best_translation_table = 4
+            shutil.copyfile(os.path.join(tmp_dir, str(best_translation_table), genome_id + '.genes.faa'), aa_gene_file)
+            shutil.copyfile(os.path.join(tmp_dir, str(best_translation_table), genome_id + '.genes.fna'), nt_gene_file)
+            shutil.copyfile(os.path.join(tmp_dir, str(best_translation_table), genome_id + '.gff'), gff_file)
 
-                shutil.copyfile(os.path.join(tmp_dir, str(best_translation_table), genome_id + '.genes.faa'), aa_gene_file)
-                shutil.copyfile(os.path.join(tmp_dir, str(best_translation_table), genome_id + '.genes.fna'), nt_gene_file)
-                shutil.copyfile(os.path.join(tmp_dir, str(best_translation_table), genome_id + '.gff'), gff_file)
+            # clean up temporary files
+            shutil.rmtree(tmp_dir)
 
-                # clean up temporary files
-                shutil.rmtree(tmp_dir)
+        return True
 
-            consumer_queue.put(genome_id)
-
-    def __consumer(self, num_genomes, consumer_queue):
-        """Track completion of reciprocal blast runs.
+    def _progress(self, processed_items, total_items):
+        """Report progress of consumer processes.
 
         Parameters
         ----------
-        num_genomes : int
-            Number of genomes to processed.
-        consumer_queue : queue
-            Queue used to indicate completion of blast runs.
+        processed_items : int
+            Number of genomes processed.
+        total_items : int
+            Total number of genomes to process.
+
+        Returns
+        -------
+        str
+            String indicating progress of data processing.
         """
 
-        processed_items = 0
-        while True:
-            status = '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, num_genomes, float(processed_items) * 100 / num_genomes)
-            sys.stdout.write('%s\r' % status)
-            sys.stdout.flush()
+        return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
-            genome_id = consumer_queue.get(block=True, timeout=None)
-            if genome_id == None:
-                break
-
-            processed_items += 1
-
-        sys.stdout.write('\n')
-
-    def run(self, genome_files, called_genes, output_dir, cpus):
+    def run(self, genome_files):
         """Call genes with Prodigal.
 
         Parameters
         ----------
         genome_files : list of str
             Nucleotide fasta files to call genes on.
-        called_genes : boolean
-            Flag indicating genes are already called.
-        output_dir : str
-            Directory to store called genes.
-        cpus : int
-            Number of cpus to use.
         """
 
         self.logger.info('  Identifying genes within genomes:')
 
-        # populate producer queue with data to process
-        producer_queue = mp.Queue()
-        for gf in genome_files:
-            producer_queue.put(gf)
-
-        for _ in range(cpus):
-            producer_queue.put(None)
-
-        try:
-            consumer_queue = mp.Queue()
-            producer_proc = [mp.Process(target=self.__producer, args=(called_genes, output_dir, producer_queue, consumer_queue)) for _ in range(cpus)]
-            consumer_proc = mp.Process(target=self.__consumer, args=(len(genome_files), consumer_queue))
-
-            consumer_proc.start()
-
-            for p in producer_proc:
-                p.start()
-
-            for p in producer_proc:
-                p.join()
-
-            consumer_queue.put(None)
-            consumer_proc.join()
-        except:
-            for p in producer_proc:
-                p.terminate()
-
-            consumer_proc.terminate()
+        parallel = Parallel(self.cpus)
+        parallel.run(self._producer, None, genome_files, self._progress)
 
 
 class ProdigalGeneFeatureParser():

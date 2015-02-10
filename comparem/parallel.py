@@ -40,6 +40,10 @@ class Parallel(object):
     Producer and consumer functions are passed to
     the run() method. The return value of the producer
     function is provided to the consumer as an argument.
+    The producer function must not return None. If a generic
+    return value is required simply return True. A progress
+    function can also be specified which allows a progress
+    string to be defined.
 
     Example:
 
@@ -56,19 +60,28 @@ class Parallel(object):
 
                 return consumer_data
 
+            def _progress(self, processed_items, total_items):
+                return 'Processed %d of %d items.' % (processed_items, total_items)
+
             def run(self):
-                parallel = Parallel()
+                parallel = Parallel(cpus = 2)
                 consumer_data = parallel.run(self._producer,
                                                 self._consumer,
-                                                data_items = [1, 2, 3, 4, 5],
-                                                cpus = 2)
+                                                data_items = [1, 2, 3, 4, 5])
 
                 print consumer_data
     """
 
-    def __init__(self):
-        """Initialization."""
+    def __init__(self, cpus=1):
+        """Initialization.
+
+        cpus : int
+            Number of processes to create.
+
+        """
         self.logger = logging.getLogger()
+
+        self.cpus = cpus
 
     def __producer(self, producer_callback, producer_queue, consumer_queue):
         """Process data items with producer processes.
@@ -91,13 +104,11 @@ class Parallel(object):
 
             consumer_queue.put(rtn)
 
-    def __process_manager(self, cpus, producer_callback, producer_queue, consumer_queue):
+    def __process_manager(self, producer_callback, producer_queue, consumer_queue):
         """Setup producer processes and manage completion of processes.
 
         Parameters
         ----------
-        cpus : int
-            Number of processes to create.
         producer_callback : function
             Function to process data items.
         producer_queue : queue
@@ -107,7 +118,7 @@ class Parallel(object):
         """
 
         try:
-            producer_proc = [mp.Process(target=self.__producer, args=(producer_callback, producer_queue, consumer_queue)) for _ in range(cpus)]
+            producer_proc = [mp.Process(target=self.__producer, args=(producer_callback, producer_queue, consumer_queue)) for _ in range(self.cpus)]
 
             for p in producer_proc:
                 p.start()
@@ -120,8 +131,11 @@ class Parallel(object):
             for p in producer_proc:
                 p.terminate()
 
-    def run(self, producer, consumer, data_items, cpus, progress=None):
+    def run(self, producer, consumer, data_items, progress=None):
         """Setup producers and consumer processes.
+
+        The producer function must be specified and must
+        not return None. Consumer and progress can be set to None.
 
         Parameters
         ----------
@@ -131,8 +145,6 @@ class Parallel(object):
             Function to consumed processed data items.
         data_items : list
             Data items to process.
-        cpus : int
-            Number of processes to create.
         progress : function
             Function to report progress string.
 
@@ -147,12 +159,12 @@ class Parallel(object):
         for d in data_items:
             producer_queue.put(d)
 
-        for _ in range(cpus):
+        for _ in range(self.cpus):
             producer_queue.put(None)  # signal processes to terminate
 
         try:
             consumer_queue = mp.Queue()
-            manager_proc = mp.Process(target=self.__process_manager, args=(cpus, producer, producer_queue, consumer_queue))
+            manager_proc = mp.Process(target=self.__process_manager, args=(producer, producer_queue, consumer_queue))
 
             manager_proc.start()
 
@@ -169,7 +181,8 @@ class Parallel(object):
                 if produced_data == None:
                     break
 
-                consumer_data = consumer(produced_data, consumer_data)
+                if consumer:
+                    consumer_data = consumer(produced_data, consumer_data)
 
                 items_processed += 1
 

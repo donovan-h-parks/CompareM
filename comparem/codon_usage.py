@@ -33,16 +33,19 @@ from comparem.parallel import Parallel
 class CodonUsage(object):
     """Calculate codon usage over a set of genomes."""
 
-    def __init__(self, keep_ambiguous=False):
+    def __init__(self, cpus=1, keep_ambiguous=False):
         """Initialization.
 
         Parameters
         ----------
+        cpus : int
+            Number of cpus to use.
         keep_ambiguous: boolean
             Keep codons with ambiguous bases.
         """
         self.logger = logging.getLogger()
 
+        self.cpus = cpus
         self.keep_ambiguous = keep_ambiguous
 
     def codon_usage(self, seqs):
@@ -153,15 +156,13 @@ class CodonUsage(object):
 
         return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
-    def run(self, gene_files, cpus):
+    def run(self, gene_files):
         """Calculate codon usage over a set of genomes.
 
         Parameters
         ----------
         gene_files : list
             Fasta files containing called genes in nucleotide space.
-        cpus : int
-            Number of cpus to use.
 
         Returns
         -------
@@ -173,7 +174,7 @@ class CodonUsage(object):
 
         self.logger.info('  Calculating codon usage for each genome.')
 
-        parallel = Parallel()
-        consumer_data = parallel.run(self._producer, self._consumer, gene_files, cpus, self._progress)
+        parallel = Parallel(self.cpus)
+        consumer_data = parallel.run(self._producer, self._consumer, gene_files, self._progress)
 
         return consumer_data.genome_codon_usage, consumer_data.codon_set

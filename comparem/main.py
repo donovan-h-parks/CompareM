@@ -22,6 +22,7 @@ import logging
 from comparem.time_keeper import TimeKeeper
 from comparem.prodigal import Prodigal
 from comparem.blast import Blast
+from comparem.diamond import Diamond
 from comparem.aai_calculator import AAICalculator
 from comparem.codon_usage import CodonUsage
 from comparem.amino_acid_usage import AminoAcidUsage
@@ -55,8 +56,8 @@ class OptionsParser():
             self.logger.warning('  [Warning] No genomes found. Check the --genome_ext flag used to identify genomes.')
             sys.exit()
 
-        prodigal = Prodigal()
-        prodigal.run(genome_files, options.genes, options.output_dir, options.cpus)
+        prodigal = Prodigal(options.cpus, options.genes, options.output_dir)
+        prodigal.run(genome_files)
 
         self.logger.info('')
         self.logger.info('  Identified genes written to: %s' % options.output_dir)
@@ -83,8 +84,12 @@ class OptionsParser():
             self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
             sys.exit()
 
-        blast = Blast()
-        blast.run(aa_gene_files, options.evalue, options.gene_ext, options.output_dir, options.cpus)
+        if options.diamond:
+            diamond = Diamond(options.cpus, options.evalue, options.gene_ext, options.output_dir)
+            diamond.run(aa_gene_files)
+        else:
+            blast = Blast(options.cpus, options.evalue, options.gene_ext, options.output_dir)
+            blast.run(aa_gene_files)
 
         self.logger.info('')
         self.logger.info('  Reciprocal blast hits written to: %s' % options.output_dir)

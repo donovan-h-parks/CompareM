@@ -33,9 +33,18 @@ from comparem.parallel import Parallel
 class AminoAcidUsage(object):
     """Calculate amino acid usage over a set of genomes."""
 
-    def __init__(self):
-        """Initialization."""
+    def __init__(self, cpus=1):
+        """Initialization.
+
+        Parameters
+        ----------
+        cpus : int
+            Number of cpus to use.
+        """
+
         self.logger = logging.getLogger()
+
+        self.cpus = cpus
 
     def amino_acid_usage(self, seqs):
         """ Calculate amino acid usage within sequences.
@@ -145,15 +154,13 @@ class AminoAcidUsage(object):
 
         return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
-    def run(self, gene_files, cpus):
+    def run(self, gene_files):
         """Calculate amino acid usage over a set of genomes.
 
         Parameters
         ----------
         gene_files : list
             Fasta files containing called genes.
-        cpus : int
-            Number of cpus to use.
 
         Returns
         -------
@@ -165,7 +172,7 @@ class AminoAcidUsage(object):
 
         self.logger.info('  Calculating amino acid usage for each genome:')
 
-        parallel = Parallel()
-        consumer_data = parallel.run(self._producer, self._consumer, gene_files, cpus, self._progress)
+        parallel = Parallel(self.cpus)
+        consumer_data = parallel.run(self._producer, self._consumer, gene_files, self._progress)
 
         return consumer_data.genome_aa_usage, consumer_data.aa_set
