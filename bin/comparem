@@ -104,7 +104,7 @@ if __name__ == '__main__':
                                         description='Perform reciprocal blast between genome pairs.')
     blast_parser.add_argument('gene_dir', help="directory containing amino acid genes in fasta format")
     blast_parser.add_argument('output_dir', help="output directory")
-    blast_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
+    blast_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value of valid blast hits")
     blast_parser.add_argument('--gene_ext', default='genes.faa', help="extension of gene files (other files in folder are ignored)")
     blast_parser.add_argument('--diamond', action="store_true", default=False, help="use diamond instead of blastp")
     blast_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
