@@ -25,70 +25,127 @@ __email__ = 'donovan.parks@gmail.com'
 import os
 import logging
 import ntpath
-from collections import defaultdict, namedtuple
+import operator
+from collections import defaultdict
 
 from comparem.seq_io import SeqIO
 from comparem.parallel import Parallel
 
-from numpy import mean
+from numpy import mean, std
 
 
-class CodonUsage(object):
-    """Calculate codon usage over a set of genomes."""
+class DinucleotideUsage(object):
+    """Calculate dinucleotide usage over a set of genomes.
 
-    def __init__(self, cpus=1, keep_ambiguous=False, stop_codon_only=False):
+    The dinucleotides are formed from the 3rd and succeeding
+    1st position nucleotides. This has been suggested for
+    identifying lateral gene transfer as this dinucleotide
+    patten is minimally restricted by amino acid preference
+    and codon usage:
+
+    Hooper SD, Berg OG. 2002. Detection of genes with atypical
+        nucleotide sequence in microbial genomes. J. Mol. Evol.
+        54:365-75
+    """
+
+    def __init__(self, output_dir, cpus=1, keep_ambiguous=False):
         """Initialization.
 
         Parameters
         ----------
+        output_dir : str
+            Directory to store results.
         cpus : int
             Number of cpus to use.
         keep_ambiguous: boolean
             Keep codons with ambiguous bases.
-        stop_codon_only: boolean
-            Only calculate usage at the last/stop codon position.
         """
         self.logger = logging.getLogger()
 
         self.cpus = cpus
+        self.output_dir = output_dir
         self.keep_ambiguous = keep_ambiguous
-        self.stop_codon_only = stop_codon_only
-        self.stop_codons = ['TAG', 'TAA', 'TGA', 'UAG', 'UAA', 'UGA']
 
-    def codon_usage(self, seqs):
-        """ Calculate codon usage within sequences.
+        if not os.path.exists(self.output_dir):
+            os.makedirs(self.output_dir)
+
+    def dinucleotide_usage(self, seqs, genome_id):
+        """ Calculate dinucleotide usage within sequences.
 
         Parameters
         ----------
         seqs : dict[seq_id] -> seq
             Sequences indexed by sequence id.
+        genome_id : str
+            Unique id of genome used to create output file.
 
         Returns
         -------
-        dict : dict[codon] -> count
-            Occurrence of each codon.
+        dict : d[dinucleotide] -> count
+            Occurrence of each dinucleotide.
         """
 
-        codon_usage = defaultdict(int)
-        gene_length = defaultdict(list)
-        for _seq_id, seq in seqs.iteritems():
-            if self.stop_codon_only:
-                codon = seq[-3:].upper()
-                if self.keep_ambiguous or 'N' not in codon:
-                    codon_usage[codon] += 1
-                    gene_length[codon].append(len(seq))
-            else:
-                for i in xrange(0, len(seq), 3):
-                    codon = seq[i:i + 3].upper()
-                    if self.keep_ambiguous or 'N' not in codon:
-                        codon_usage[codon] += 1
+        # calculate dinucleotide usage for each genome
+        # and the genome as a while
+        di_usage = defaultdict(lambda: defaultdict(int))
+        genome_di_usage = defaultdict(int)
+        di_set = set()
+        for gene_id, seq in seqs.iteritems():
+            for i in xrange(0, len(seq), 3):
+                dinucleotide = seq[i:i + 2].upper()
+                if self.keep_ambiguous or 'N' not in dinucleotide:
+                    di_usage[gene_id][dinucleotide] += 1
+                    genome_di_usage[dinucleotide] += 1
+                    di_set.add(dinucleotide)
 
-        # get average gene length for each stop codon
-        if gene_length:
-            for codon, seq_lens in gene_length.iteritems():
-                gene_length[codon] = mean(seq_lens)
+        di_set_sorted = sorted(di_set)
 
-        return codon_usage, gene_length
+        # calculate Manhattan distance for each gene
+        dist = {}
+        genome_sum_di = sum(genome_di_usage.values())
+        for gene_id, dinucleotides in di_usage.iteritems():
+            d = 0
+            gene_sum_di = sum(dinucleotides.values())
+            for di in di_set_sorted:
+                d += abs(dinucleotides.get(di, 0) * 100.0 / gene_sum_di - genome_di_usage.get(di, 0) * 100.0 / genome_sum_di)
+            dist[gene_id] = d
+
+        # model all distances as a normal distribution
+        m = mean(dist.values())
+        s = std(dist.values())
+
+        # calculate standard deviations from the mean
+        std_mean_dict = {}
+        for gene_id, d in dist.iteritems():
+            std_mean_dict[gene_id] = (d - m) / s
+
+        gene_ids_sorted = sorted(std_mean_dict.items(), key=operator.itemgetter(1), reverse=True)
+
+        # report dinucleotide usage of each gene
+        output_file = os.path.join(self.output_dir, genome_id + '.di_usage.tsv')
+        fout = open(output_file, 'w')
+
+        fout.write('Gene Id\tSeq. length (bp)\t# dinucleotides\tManhattan distance\tDeviations from mean')
+        for di in di_set_sorted:
+            fout.write('\t' + di)
+        fout.write('\n')
+
+        fout.write('%s\t%d\t%d' % ('<complete genome>', sum([len(x) for x in seqs.values()]), genome_sum_di))
+        fout.write('\t%.1f\t%.1f' % (0, 0))
+        for di in di_set_sorted:
+            fout.write('\t%.2f' % (genome_di_usage.get(di, 0) * 100.0 / genome_sum_di))
+        fout.write('\n')
+
+        for gene_id, std_mean in gene_ids_sorted:
+            dinucleotides = di_usage[gene_id]
+            sum_di = sum(dinucleotides.values())
+            fout.write('%s\t%d\t%d' % (gene_id, len(seqs[gene_id]), sum_di))
+            fout.write('\t%.2f\t%.2f' % (dist[gene_id], std_mean))
+
+            for di in di_set_sorted:
+                fout.write('\t%.2f' % (dinucleotides.get(di, 0) * 100.0 / sum_di))
+            fout.write('\n')
+        fout.close()
 
     def _producer(self, gene_file):
         """Calculates codon usage of a genome.
@@ -120,47 +177,9 @@ class CodonUsage(object):
 
         seq_io = SeqIO()
         seqs = seq_io.read_fasta(gene_file)
-        codon_usage, gene_length = self.codon_usage(seqs)
+        self.dinucleotide_usage(seqs, genome_id)
 
-        return [genome_id, codon_usage, gene_length]
-
-    def _consumer(self, produced_data, consumer_data):
-        """Consume results from producer processes.
-
-        This function is intended to be used as a
-        consumer within a producer/consumer multiprocessing
-        framework. It stores the codon usage for each
-        genome into a dictionary and determines the set
-        of codons observed across all genomes.
-
-         Parameters
-        ----------
-        produced_data : list -> [genome_id, codon_usage]
-            Unique id of a genome followed by a dictionary
-            indicating its codon usage.
-        consumer_data : namedtuple
-            Set of codons observed across all genomes (codon_set),
-            along with the codon usage of each genome (genome_codon_usage),
-            and the average length of genes for stop codons (mean_gene_length).
-
-        Returns
-        -------
-        consumer_data
-            The consumer data structure or None must be returned
-        """
-
-        if consumer_data == None:
-            # setup data to be returned by consumer
-            ConsumerData = namedtuple('ConsumerData', 'codon_set genome_codon_usage mean_gene_length')
-            consumer_data = ConsumerData(set(), dict(), dict())
-
-        genome_id, codon_usage, mean_gene_length = produced_data
-
-        consumer_data.codon_set.update(codon_usage.keys())
-        consumer_data.genome_codon_usage[genome_id] = codon_usage
-        consumer_data.mean_gene_length[genome_id] = mean_gene_length
-
-        return consumer_data
+        return True
 
     def _progress(self, processed_items, total_items):
         """Report progress of consumer processes.
@@ -200,10 +219,6 @@ class CodonUsage(object):
 
         self.logger.info('  Calculating codon usage for each genome.')
 
-        if self.gene_output_dir and not os.path.exists(self.gene_output_dir):
-            os.makedirs(self.gene_output_dir)
-
         parallel = Parallel(self.cpus)
-        consumer_data = parallel.run(self._producer, self._consumer, gene_files, self._progress)
+        parallel.run(self._producer, None, gene_files, self._progress)
 
-        return consumer_data.genome_codon_usage, consumer_data.codon_set, consumer_data.mean_gene_length

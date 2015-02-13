@@ -22,6 +22,7 @@ __license__ = 'GPL3'
 __maintainer__ = 'Donovan Parks'
 __email__ = 'donovan.parks@gmail.com'
 
+import os
 import logging
 import ntpath
 from collections import defaultdict, namedtuple
@@ -92,7 +93,8 @@ class AminoAcidUsage(object):
         """
 
         genome_id = ntpath.basename(gene_file)
-        genome_id = genome_id[0:genome_id.rfind('.')]
+        genome_id = genome_id.replace('.genes.faa', '')
+        genome_id = os.path.splitext(genome_id)[0]
 
         seq_io = SeqIO()
         seqs = seq_io.read_fasta(gene_file)

@@ -26,6 +26,7 @@ from comparem.diamond import Diamond
 from comparem.aai_calculator import AAICalculator
 from comparem.codon_usage import CodonUsage
 from comparem.amino_acid_usage import AminoAcidUsage
+from comparem.dinucleotide_usage import DinucleotideUsage
 from comparem.PCoA import PCoA
 from comparem.common import (remove_extension,
                              make_sure_path_exists,
@@ -166,8 +167,8 @@ class OptionsParser():
             fout.write('\t' + aa)
         fout.write('\n')
 
-        for genomeId, codons in genome_aa_usage.iteritems():
-            fout.write(genomeId)
+        for genome_id, codons in genome_aa_usage.iteritems():
+            fout.write(genome_id)
 
             for aa in aa_set:
                 fout.write('\t%d' % codons.get(aa, 0))
@@ -201,8 +202,8 @@ class OptionsParser():
             return
 
         # calculate amino acid usage
-        codon_usage = CodonUsage(options.keep_ambiguous)
-        genome_codon_usage, codon_set = codon_usage.run(gene_files, options.cpus)
+        codon_usage = CodonUsage(options.cpus, options.keep_ambiguous)
+        genome_codon_usage, codon_set = codon_usage.run(gene_files)
 
         # write out results
         fout = open(options.output_file, 'w')
@@ -210,8 +211,8 @@ class OptionsParser():
             fout.write('\t' + codon)
         fout.write('\n')
 
-        for genomeId, codons in genome_codon_usage.iteritems():
-            fout.write(genomeId)
+        for genome_id, codons in genome_codon_usage.iteritems():
+            fout.write(genome_id)
 
             for codon in codon_set:
                 fout.write('\t%d' % codons.get(codon, 0))
@@ -219,6 +220,90 @@ class OptionsParser():
 
         self.logger.info('')
         self.logger.info('  Codon usage written to: %s' % options.output_file)
+
+        self.time_keeper.print_time_stamp()
+
+    def stop_usage(self, options):
+        """Stop codon usage command"""
+        self.logger.info('')
+        self.logger.info('*******************************************************************************')
+        self.logger.info(' [CompareM - stop_usage] Calculating stop codon usage within each genome.')
+        self.logger.info('*******************************************************************************')
+        self.logger.info('')
+
+        check_dir_exists(options.gene_dir)
+
+        # get list of files with called genes
+        gene_files = []
+        files = os.listdir(options.gene_dir)
+        for f in files:
+            if f.endswith(options.gene_ext):
+                gene_files.append(os.path.join(options.gene_dir, f))
+
+        # warn use if no files were found
+        if len(gene_files) == 0:
+            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
+            return
+
+        # calculate amino acid usage
+        codon_usage = CodonUsage(options.cpus, keep_ambiguous=False, stop_codon_only=True)
+        genome_codon_usage, codon_set, mean_gene_length = codon_usage.run(gene_files)
+
+        # write out results
+        fout = open(options.output_file, 'w')
+        for codon in codon_set:
+            fout.write('\t' + codon)
+            if mean_gene_length:
+                fout.write('\t' + codon + ': avg. seq. length')
+        fout.write('\n')
+
+        for genome_id, codons in genome_codon_usage.iteritems():
+            fout.write(genome_id)
+
+            for codon in codon_set:
+                fout.write('\t%d' % codons.get(codon, 0))
+
+                if mean_gene_length:
+                    mean_len = mean_gene_length[genome_id].get(codon, None)
+                    if mean_len:
+                        fout.write('\t%.1f' % mean_len)
+                    else:
+                        fout.write('\tna')
+            fout.write('\n')
+
+        self.logger.info('')
+        self.logger.info('  Stop codon usage written to: %s' % options.output_file)
+
+        self.time_keeper.print_time_stamp()
+
+    def lgt_usage(self, options):
+        """LGT dinucleotide usage command"""
+        self.logger.info('')
+        self.logger.info('*******************************************************************************')
+        self.logger.info(' [CompareM - lgt_usage] Calculating dinuceotide (3rd,1st) usage.')
+        self.logger.info('*******************************************************************************')
+        self.logger.info('')
+
+        check_dir_exists(options.gene_dir)
+
+        # get list of files with called genes
+        gene_files = []
+        files = os.listdir(options.gene_dir)
+        for f in files:
+            if f.endswith(options.gene_ext):
+                gene_files.append(os.path.join(options.gene_dir, f))
+
+        # warn use if no files were found
+        if len(gene_files) == 0:
+            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
+            return
+
+        # calculate amino acid usage
+        dinucleotide_usage = DinucleotideUsage(options.output_dir, options.cpus, options.keep_ambiguous)
+        dinucleotide_usage.run(gene_files)
+
+        self.logger.info('')
+        self.logger.info('  Dinucleotide usage written to: %s' % options.output_dir)
 
         self.time_keeper.print_time_stamp()
 
@@ -289,6 +374,10 @@ class OptionsParser():
             self.aa_usage(options)
         elif(options.subparser_name == 'codon_usage'):
             self.codon_usage(options)
+        elif(options.subparser_name == 'stop_usage'):
+            self.stop_usage(options)
+        elif(options.subparser_name == 'lgt_usage'):
+            self.lgt_usage(options)
         elif(options.subparser_name == 'unique'):
             self.unique(options)
         elif(options.subparser_name == 'pcoa_plot'):

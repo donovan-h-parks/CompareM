@@ -69,12 +69,19 @@ def print_help():
      dispensable -> [Not implemented] Identify genes contained in more than one, but not all genomes
      unique      -> [Not implemented] Identify genes present in a single genome
 
-    genome_stats -> [Not implemented] Calculate statistics for each genome (e.g., GC, coding density)
+    General statistics:
+     genome_stats -> [Not implemented] Calculate statistics for each genome (e.g., GC, coding density)
 
-    aa_usage    -> Calculate amino acid usage within each genome
-    codon_usage -> Calculate codon usage within each genome
+    Patterns of usage:
+     aa_usage    -> Calculate amino acid usage within each genome
+     codon_usage -> Calculate codon usage within each genome
+     stop_usage  -> Calculate stop codon usage within each genome
 
-    pcoa_plot    -> [Not implemented] Generate PCoA plot indicating relative similarity of genomes
+    Lateral gene transfer:
+     lgt_usage   -> Calculate dinuceotide (3rd,1st) usage to identify putative LGT events
+
+    Plots:
+     pcoa_plot    -> [Not implemented] Generate PCoA plot indicating relative similarity of genomes
 
   Use: comparem <command> -h for command specific help.
 
@@ -152,6 +159,25 @@ if __name__ == '__main__':
     codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in folder are ignored)")
     codon_parser.add_argument('--keep_ambiguous', action='store_true', help="keep codons with ambiguous bases")
     codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+
+    # calculate stop codon usage
+    stop_codon_parser = subparsers.add_parser('stop_usage',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Calculate stop codon usage within each genome.')
+    stop_codon_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
+    stop_codon_parser.add_argument('output_file', help="output file indicating stop codon usage of each genome")
+    stop_codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in folder are ignored)")
+    stop_codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
+
+    # calculate LGT dinucleotide (3rd, 1st) usage
+    di_usage_parser = subparsers.add_parser('lgt_usage',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Calculate dinuceotide (3rd,1st) usage for each gene for use in identifying LGT.')
+    di_usage_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
+    di_usage_parser.add_argument('output_dir', help="output directory to write dinucleotide usage for each gene in each genome")
+    di_usage_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in folder are ignored)")
+    di_usage_parser.add_argument('--keep_ambiguous', action='store_true', help="keep dinucleotides with ambiguous bases")
+    di_usage_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=16)
 
     # unique
     unique_parser = subparsers.add_parser('unique',
