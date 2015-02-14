@@ -27,8 +27,8 @@ import logging
 import ntpath
 from collections import defaultdict, namedtuple
 
-from comparem.seq_io import SeqIO
-from comparem.parallel import Parallel
+from biolib.seq_io import SeqIO
+from biolib.parallel import Parallel
 
 
 class AminoAcidUsage(object):

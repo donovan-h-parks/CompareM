@@ -31,7 +31,8 @@ import sys
 import argparse
 
 from comparem.main import OptionsParser
-from comparem.custom_help_formatter import CustomHelpFormatter
+
+from biolib.misc.custom_help_formatter import CustomHelpFormatter
 
 """
 *****************************************************************************

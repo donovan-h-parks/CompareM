@@ -28,10 +28,10 @@ import ntpath
 import operator
 from collections import defaultdict
 
-from comparem.seq_io import SeqIO
-from comparem.parallel import Parallel
+from biolib.seq_io import SeqIO
+from biolib.parallel import Parallel
 
-from numpy import mean, std
+from numpy import mean, std, array, dot, transpose, sqrt
 
 
 class DinucleotideUsage(object):
@@ -90,15 +90,71 @@ class DinucleotideUsage(object):
         di_usage = defaultdict(lambda: defaultdict(int))
         genome_di_usage = defaultdict(int)
         di_set = set()
+        n1 = defaultdict(int)
+        n3 = defaultdict(int)
         for gene_id, seq in seqs.iteritems():
-            for i in xrange(0, len(seq), 3):
+            for i in xrange(2, len(seq) - 1, 3):
                 dinucleotide = seq[i:i + 2].upper()
                 if self.keep_ambiguous or 'N' not in dinucleotide:
                     di_usage[gene_id][dinucleotide] += 1
                     genome_di_usage[dinucleotide] += 1
+                    n3[seq[i:i + 1].upper()] += 1
+                    n1[seq[i + 1:i + 2].upper()] += 1
                     di_set.add(dinucleotide)
 
         di_set_sorted = sorted(di_set)
+
+        """
+        Moving to method in paper above.
+        -> need to properly calculates the z_GA values.
+        """
+
+        # calculate mean and std. dev. for each dinucleotide
+        di_mean = defaultdict(float)
+        di_std = defaultdict(float)
+        N = sum(genome_di_usage.values())
+        for a in ['A', 'C', 'G', 'T']:
+            for b in ['A', 'C', 'G', 'T']:
+                m = float(n3[a] * n1[b]) / N
+                di_mean[a + b] = m
+                var = m * (1.0 - min(n3[a], n1[b]) / N) * ((N - max(n3[a], n1[b])) / (N - 1.0))
+                di_std[a + b] = sqrt(var)
+
+        # calculate genomic dinculotide bias
+        for di in di_set_sorted:
+            genome_di_usage[di] = float(genome_di_usage.get(di, 0) - di_mean[di]) / di_std[di]
+
+        print di_usage['cck10.paired_contig_7524_8']
+        for dinucleotides in di_usage.values():
+            for di in di_set_sorted:
+                dinucleotides[di] = float(dinucleotides.get(di, 0) - di_mean[di]) / di_std[di]  # ************************************* di_mean so be the mean calculated over the individual gene!!
+        print di_usage['cck10.paired_contig_7524_8']
+
+        # calculate covariance matrix
+        cov_matrix = []
+        for di_j in di_set_sorted[0:-1]:
+            row = []
+            for di_k in di_set_sorted[0:-1]:
+                s = 0
+                for dinucleotides in di_usage.values():
+                    s += (dinucleotides[di_j] - genome_di_usage[di_j]) * (dinucleotides[di_k] - genome_di_usage[di_k])
+                s /= (len(di_usage) - 1)
+
+                row.append(s)
+            cov_matrix.append(row)
+        cov_matrix = transpose(array(cov_matrix))
+
+        # calculate Manhattan distances for each dinucleotide
+        for gene_id, dinucleotides in di_usage.iteritems():
+            x = []
+            for di in di_set_sorted[0:-1]:
+                x.append(dinucleotides[di] - genome_di_usage[di])
+            x = array(x)
+
+            T = dot(transpose(x), cov_matrix).dot(x)  # ****** NEED TO THROW IN INVERSE HERE!
+
+            print T
+
 
         # calculate Manhattan distance for each gene
         dist = {}
@@ -220,5 +276,5 @@ class DinucleotideUsage(object):
         self.logger.info('  Calculating codon usage for each genome.')
 
         parallel = Parallel(self.cpus)
-        parallel.run(self._producer, None, gene_files, self._progress)
+        parallel.run(self._producer, None, gene_files[0:1], self._progress)
 

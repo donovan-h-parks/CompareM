@@ -27,12 +27,14 @@ import sys
 import subprocess
 import logging
 
-from comparem.common import remove_extension
-from comparem.parallel import Parallel
+from biolib.common import remove_extension
+from biolib.parallel import Parallel
 
 """
 *****************************************************************************
 To do:
+ -- this should be renamed to indicate it performs reciprocal blast and
+    generalized to allow it to be placed in biolib
  - blast genome against itself to find duplicate genes.
  - consider moving over to using 'diamond blastp'
  -- need to compare blastp vs. diamond in terms of speed and results

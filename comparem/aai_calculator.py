@@ -29,8 +29,8 @@ import multiprocessing as mp
 
 from numpy import mean, std
 
-from comparem.seq_io import SeqIO
-from comparem.common import make_sure_path_exists
+from biolib.seq_io import SeqIO
+from biolib.common import make_sure_path_exists
 
 """
 *****************************************************************************
@@ -39,6 +39,7 @@ To do:
    reciprocal best blast hits.
 *****************************************************************************
 """
+
 
 class AAICalculator(object):
     """Calculate AAI between all pairs of genomes."""

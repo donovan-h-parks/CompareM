@@ -19,8 +19,6 @@ import os
 import sys
 import logging
 
-from comparem.time_keeper import TimeKeeper
-from comparem.prodigal import Prodigal
 from comparem.blast import Blast
 from comparem.diamond import Diamond
 from comparem.aai_calculator import AAICalculator
@@ -28,7 +26,10 @@ from comparem.codon_usage import CodonUsage
 from comparem.amino_acid_usage import AminoAcidUsage
 from comparem.dinucleotide_usage import DinucleotideUsage
 from comparem.PCoA import PCoA
-from comparem.common import (remove_extension,
+
+from biolib.misc.time_keeper import TimeKeeper
+from biolib.external.prodigal import Prodigal
+from biolib.common import (remove_extension,
                              make_sure_path_exists,
                              check_dir_exists)
 

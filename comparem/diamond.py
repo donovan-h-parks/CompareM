@@ -27,8 +27,14 @@ import sys
 import subprocess
 import logging
 
-from comparem.common import remove_extension
-from comparem.parallel import Parallel
+from biolib.common import remove_extension
+from biolib.parallel import Parallel
+
+"""
+To Do:
+-- this should be renamed to indicate it performs reciprocal blast and
+    generalized to allow it to be placed in biolib
+"""
 
 
 class Diamond(object):
