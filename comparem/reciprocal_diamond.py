@@ -72,15 +72,8 @@ class ReciprocalDiamond(object):
         """
         aa_gene_fileA, aa_gene_fileB = genome_pair
 
-        if '.genes.faa' in aa_gene_fileA:
-            genome_idA = remove_extension(aa_gene_fileA, '.genes.faa')
-        else:
-            genome_idA = remove_extension(aa_gene_fileA)
-            
-        if '.genes.faa' in aa_gene_fileB:
-            genome_idB = remove_extension(aa_gene_fileB, '.genes.faa')
-        else:
-            genome_idB = remove_extension(aa_gene_fileB)
+        genome_idA = remove_extension(aa_gene_fileA, '.genes.faa')
+        genome_idB = remove_extension(aa_gene_fileB, '.genes.faa')
 
         dbA = os.path.join(self.output_dir, genome_idA + '.db')
         dbB = os.path.join(self.output_dir, genome_idB + '.db')
