@@ -19,8 +19,8 @@ import os
 import sys
 import logging
 
-from comparem.blast import Blast
-from comparem.diamond import Diamond
+from comparem.reciprocal_blast import ReciprocalBlast
+from comparem.reciprocal_diamond import ReciprocalDiamond
 from comparem.aai_calculator import AAICalculator
 from comparem.codon_usage import CodonUsage
 from comparem.amino_acid_usage import AminoAcidUsage
@@ -87,11 +87,11 @@ class OptionsParser():
             sys.exit()
 
         if options.diamond:
-            diamond = Diamond(options.cpus, options.evalue, options.gene_ext, options.output_dir)
-            diamond.run(aa_gene_files)
+            rdiamond = ReciprocalDiamond(options.cpus)
+            rdiamond.run(aa_gene_files, options.evalue, options.output_dir)
         else:
-            blast = Blast(options.cpus, options.evalue, options.gene_ext, options.output_dir)
-            blast.run(aa_gene_files)
+            rblast = ReciprocalBlast(options.cpus)
+            rblast.run(aa_gene_files, options.evalue, options.output_dir)
 
         self.logger.info('')
         self.logger.info('  Reciprocal blast hits written to: %s' % options.output_dir)
