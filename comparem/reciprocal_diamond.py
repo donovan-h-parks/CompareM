@@ -26,9 +26,9 @@ import os
 import sys
 import subprocess
 import logging
+import tempfile
 
-from biolib.common import remove_extension
-from biolib.parallel import Parallel
+from biolib.common import remove_extension, concatenate_files
 
 """
 To Do:
@@ -62,76 +62,7 @@ class ReciprocalDiamond(object):
             self.logger.error("  Make sure diamond is on your system path.")
             sys.exit()
 
-    def _producer_blast(self, genome_pair):
-        """Apply reciprocal blast to a pair of genomes.
-
-        Parameters
-        ----------
-        genome_pair : list
-            Fasta files with genes in amino acid space for each genome.
-        """
-        aa_gene_fileA, aa_gene_fileB = genome_pair
-
-        genome_idA = remove_extension(aa_gene_fileA, '.genes.faa')
-        genome_idB = remove_extension(aa_gene_fileB, '.genes.faa')
-
-        dbA = os.path.join(self.output_dir, genome_idA + '.db')
-        dbB = os.path.join(self.output_dir, genome_idB + '.db')
-
-        output_fileAB = os.path.join(self.output_dir, genome_idA + '-' + genome_idB + '.blastp.tsv')
-        cmd = "diamond blastp --compress 0 -p %d -q %s -d %s -o %s -k 1 -e %s" % (self.producer_cpus, 
-                                                                                    aa_gene_fileA, 
-                                                                                    dbB, 
-                                                                                    output_fileAB, 
-                                                                                    str(self.evalue))
-        os.system(cmd)
-
-        output_fileBA = os.path.join(self.output_dir, genome_idB + '-' + genome_idA + '.blastp.tsv')
-        cmd = "diamond blastp --compress 0 -p %d -q %s -d %s -o %s -k 1 -e %s" % (self.producer_cpus, 
-                                                                                    aa_gene_fileB, 
-                                                                                    dbA, 
-                                                                                    output_fileBA, 
-                                                                                    str(self.evalue))
-        os.system(cmd)
-
-        return True
-
-    def _producer_db(self, aa_gene_file):
-        """Create diamond database.
-
-        Parameters
-        ----------
-        aa_gene_files : str
-            Fasta file with genes in amino acid space.
-        """
-
-        genome_id = remove_extension(aa_gene_file, self.extension)
-
-        blast_DB = os.path.join(self.output_dir, genome_id + '.db')
-        cmd = 'diamond makedb -p %d --in %s -d %s' % (self.producer_cpus, aa_gene_file, blast_DB)
-        os.system(cmd)
-
-        return True
-
-    def _progress(self, processed_items, total_items):
-        """Report progress of consumer processes.
-
-        Parameters
-        ----------
-        processed_items : int
-            Number of genomes processed.
-        total_items : int
-            Total number of genomes to process.
-
-        Returns
-        -------
-        str
-            String indicating progress of data processing.
-        """
-
-        return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
-
-    def run(self, aa_gene_files, evalue, output_dir):
+    def run(self, aa_gene_files, evalue, per_identity, output_dir):
         """Apply reciprocal blast to all pairs of genomes in parallel.
 
         Parameters
@@ -139,32 +70,30 @@ class ReciprocalDiamond(object):
         aa_gene_files : list of str
             Amino acid fasta files to process via reciprocal blast.
         evalue : float
-            E-value threshold used by blast.
+            E-value threshold for reporting hits.
+        per_identity : float
+            Percent identity threshold for reporting hits.
         output_dir : str
             Directory to store blast results.
         """
-        
-        self.evalue = evalue
-        self.output_dir = output_dir
 
-        # set CPUs per producer process
-        self.producer_cpus = 1
-        if self.cpus > len(aa_gene_files):
-            self.producer_cpus = self.cpus / aa_gene_files
+        # concatenate all gene files and create a single diamond database
+        self.logger.info('  Creating diamond database (be patient!).')
+        gene_file = os.path.join(output_dir, 'all_genes.faa')
+        concatenate_files(aa_gene_files, gene_file)
+        diamond_db = os.path.join(output_dir, 'all_genes')
+        cmd = 'diamond makedb -p %d --in %s -d %s' % (self.cpus, gene_file, diamond_db)
+        os.system(cmd)
 
-        # create the blast databases in serial
-        self.logger.info('  Creating diamond databases:')
-
-        parallel = Parallel(self.cpus)
-        parallel.run(self._producer_db, None, aa_gene_files, self._progress)
-
-        # perform reciprocal blast between all genome pairs
+        # blast all genes against the database
         self.logger.info('')
-        self.logger.info('  Identifying hits between all pairs of genomes:')
-
-        genome_pairs = []
-        for i in xrange(0, len(aa_gene_files)):
-            for j in xrange(i + 1, len(aa_gene_files)):
-                genome_pairs.append([aa_gene_files[i], aa_gene_files[j]])
-
-        parallel.run(self._producer_blast, None, genome_pairs, self._progress)
+        self.logger.info('  Identifying hits between all pairs of genomes (be patient!).')
+        hits_file = os.path.join(output_dir, 'all_hits.tsv')
+        cmd = "diamond blastp --compress 0 -p %d -q %s -d %s -o %s -k %d -e %g --id %f" % (self.cpus,
+                                                                                            gene_file,
+                                                                                            diamond_db,
+                                                                                            hits_file,
+                                                                                            len(aa_gene_files) * 10,
+                                                                                            evalue,
+                                                                                            per_identity)
+        os.system(cmd)

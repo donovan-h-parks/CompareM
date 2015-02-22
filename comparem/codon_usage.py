@@ -27,7 +27,7 @@ import logging
 import ntpath
 from collections import defaultdict, namedtuple
 
-from biolib.seq_io import SeqIO
+from biolib.seq_io import read_fasta
 from biolib.parallel import Parallel
 
 from numpy import mean
@@ -78,7 +78,7 @@ class CodonUsage(object):
                     codon_usage[codon] += 1
                     gene_length[codon].append(len(seq))
             else:
-                for i in xrange(0, len(seq), 3):
+                for i in xrange(0, len(seq) - 3, 3):
                     codon = seq[i:i + 3].upper()
                     if self.keep_ambiguous or 'N' not in codon:
                         codon_usage[codon] += 1
@@ -118,11 +118,10 @@ class CodonUsage(object):
         genome_id = genome_id.replace('.genes.fna', '')
         genome_id = os.path.splitext(genome_id)[0]
 
-        seq_io = SeqIO()
-        seqs = seq_io.read_fasta(gene_file)
+        seqs = read_fasta(gene_file)
         codon_usage, gene_length = self.codon_usage(seqs)
 
-        return [genome_id, codon_usage, gene_length]
+        return (genome_id, codon_usage, gene_length)
 
     def _consumer(self, produced_data, consumer_data):
         """Consume results from producer processes.
@@ -199,9 +198,6 @@ class CodonUsage(object):
         """
 
         self.logger.info('  Calculating codon usage for each genome.')
-
-        if self.gene_output_dir and not os.path.exists(self.gene_output_dir):
-            os.makedirs(self.gene_output_dir)
 
         parallel = Parallel(self.cpus)
         consumer_data = parallel.run(self._producer, self._consumer, gene_files, self._progress)

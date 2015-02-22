@@ -29,6 +29,7 @@ import logging
 
 from biolib.common import remove_extension
 from biolib.parallel import Parallel
+from biolib.external.blast import Blast
 
 """
 *****************************************************************************
@@ -75,34 +76,25 @@ class ReciprocalBlast(object):
 
         Parameters
         ----------
-        producer_queue : queue
-            Queue containing pairs of genomes to process.
-        consumer_queue : queue
-            Queue to indicate completion of reciprocal blast.
+        genome_pair : list
+            Identifier of genomes to process.
         """
+
+        blast = Blast(cpus=self.producer_cpus)
+
         aa_gene_fileA, aa_gene_fileB = genome_pair
 
-        genome_idA = remove_extension(aa_gene_fileA, self.extension)
-        genome_idB = remove_extension(aa_gene_fileB, self.extension)
+        genome_idA = remove_extension(aa_gene_fileA, '.genes.faa')
+        genome_idB = remove_extension(aa_gene_fileB, '.genes.faa')
 
         dbA = os.path.join(self.output_dir, genome_idA + '.db')
         dbB = os.path.join(self.output_dir, genome_idB + '.db')
 
         output_fileAB = os.path.join(self.output_dir, genome_idA + '-' + genome_idB + '.blastp.tsv')
-        cmd = "blastp -num_threads %d -query %s -db %s -out %s -max_target_seqs 1 -evalue %s -outfmt '6 qseqid qlen sseqid slen length pident evalue bitscore'" % (self.producer_cpus, 
-                                                                                                                                                                    aa_gene_fileA, 
-                                                                                                                                                                    dbB, 
-                                                                                                                                                                    output_fileAB, 
-                                                                                                                                                                    str(self.evalue))
-        os.system(cmd)
+        blast.blastp(aa_gene_fileA, dbB, self.evalue, 'standard', output_fileAB)
 
         output_fileBA = os.path.join(self.output_dir, genome_idB + '-' + genome_idA + '.blastp.tsv')
-        cmd = "blastp -num_threads %d-query %s -db %s -out %s -max_target_seqs 1 -evalue %s -outfmt '6 qseqid qlen sseqid slen length pident evalue bitscore'" % (self.producer_cpus, 
-                                                                                                                                                                    aa_gene_fileB, 
-                                                                                                                                                                    dbA, 
-                                                                                                                                                                    output_fileBA, 
-                                                                                                                                                                    str(self.evalue))
-        os.system(cmd)
+        blast.blastp(aa_gene_fileB, dbA, self.evalue, 'standard', output_fileBA)
 
         return True
 
@@ -115,7 +107,7 @@ class ReciprocalBlast(object):
             Fasta file with genes in amino acid space.
         """
 
-        genome_id = remove_extension(aa_gene_file, self.extension)
+        genome_id = remove_extension(aa_gene_file, '.genes.faa')
 
         blast_DB = os.path.join(self.output_dir, genome_id + '.db')
         log_file = os.path.join(self.output_dir, genome_id + '.log')
@@ -154,14 +146,14 @@ class ReciprocalBlast(object):
         output_dir : str
             Directory to store blast results.
         """
-        
+
         self.evalue = evalue
         self.output_dir = output_dir
-        
+
         # set CPUs per producer process
         self.producer_cpus = 1
         if self.cpus > len(aa_gene_files):
-            self.producer_cpus = self.cpus / aa_gene_files
+            self.producer_cpus = self.cpus / len(aa_gene_files)
 
         # create the blast databases in serial
         self.logger.info('  Creating blast databases:')
@@ -175,7 +167,7 @@ class ReciprocalBlast(object):
 
         genome_pairs = []
         for i in xrange(0, len(aa_gene_files)):
-            for j in xrange(i + 1, len(aa_gene_files)):
-                genome_pairs.append([aa_gene_files[i], aa_gene_files[j]])
+            for j in xrange(i, len(aa_gene_files)):
+                genome_pairs.append((aa_gene_files[i], aa_gene_files[j]))
 
         parallel.run(self._producer_blast, None, genome_pairs, self._progress)

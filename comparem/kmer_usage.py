@@ -25,16 +25,22 @@ __email__ = 'donovan.parks@gmail.com'
 import os
 import logging
 import ntpath
-from collections import defaultdict, namedtuple
+from collections import namedtuple
 
+from biolib.genomic_signature import GenomicSignature
 from biolib.seq_io import read_fasta
 from biolib.parallel import Parallel
 
 
-class AminoAcidUsage(object):
-    """Calculate amino acid usage over a set of genomes."""
+class KmerUsage(object):
+    """Calculate kmer usage over a set of genomes.
 
-    def __init__(self, cpus=1):
+    The implementation for calculating genomic signatures
+    is not optimized for speed. As such, this class is
+    useful for k <= 8.
+    """
+
+    def __init__(self, k, cpus=1):
         """Initialization.
 
         Parameters
@@ -42,70 +48,49 @@ class AminoAcidUsage(object):
         cpus : int
             Number of cpus to use.
         """
-
         self.logger = logging.getLogger()
 
+        self.k = k
         self.cpus = cpus
 
-    def amino_acid_usage(self, seqs):
-        """ Calculate amino acid usage within sequences.
+        self.logger.info('  Calculating unique kmers of size k = %d.' % self.k)
+        self.signatures = GenomicSignature(self.k)
+
+    def _producer(self, genome_file):
+        """Calculates kmer usage of a genome.
 
         Parameters
         ----------
-        seqs : dict[seq_id] -> seq
-            Sequences indexed by sequence id.
-
-        Returns
-        -------
-        dict : dict[aa] -> count
-            Occurrence of each amino acid.
-        """
-        aa_usage = defaultdict(int)
-
-        for _seqId, seq in seqs.iteritems():
-            for aa in seq:
-                if aa != '*':
-                    aa = aa.upper()
-                    aa_usage[aa] += 1
-
-        return aa_usage
-
-    def _producer(self, gene_file):
-        """Calculates amino acid usage of a genome.
-
-        Parameters
-        ----------
-        gene_file : str
-            Fasta file containing amino acid sequences.
+        genome_file : str
+            Fasta file containing genomic sequences.
 
         Returns
         -------
         str
            Unique identifier of genome.
-        dict : dict[aa] -> count
-            Occurrence of each amino acid.
+        dict : d[kmer] -> count
+            Occurrence of each kmer.
         """
 
-        genome_id = ntpath.basename(gene_file)
-        genome_id = genome_id.replace('.genes.faa', '')
+        genome_id = ntpath.basename(genome_file)
         genome_id = os.path.splitext(genome_id)[0]
 
-        seqs = read_fasta(gene_file)
-        aa_usage = self.amino_acid_usage(seqs)
+        seqs = read_fasta(genome_file)
+        kmer_usage = self.signatures.calculate(seqs)
 
-        return [genome_id, aa_usage]
+        return (genome_id, kmer_usage)
 
     def _consumer(self, produced_data, consumer_data):
         """Consume results from producer processes.
 
          Parameters
         ----------
-        produced_data : list -> [genome_id, aa_usage]
+        produced_data : list -> [genome_id, kmer_usage]
             Unique id of a genome followed by a dictionary
-            indicating its amino acid usage.
+            indicating its kmer usage.
         consumer_data : namedtuple
-            Set of amino acids observed across all genomes (aa_set),
-            along with the amino acid usage of each genome (genome_aa_usage).
+            Set of kmers observed across all genomes (kmer_set),
+            along with the kmer usage of each genome (genome_kmer_usage).
 
         Returns
         -------
@@ -115,13 +100,13 @@ class AminoAcidUsage(object):
 
         if consumer_data == None:
             # setup data to be returned by consumer
-            ConsumerData = namedtuple('ConsumerData', 'aa_set genome_aa_usage')
+            ConsumerData = namedtuple('ConsumerData', 'kmer_set genome_kmer_usage')
             consumer_data = ConsumerData(set(), dict())
 
-        genome_id, aa_usage = produced_data
+        genome_id, kmer_usage = produced_data
 
-        consumer_data.aa_set.update(aa_usage.keys())
-        consumer_data.genome_aa_usage[genome_id] = aa_usage
+        consumer_data.kmer_set.update(kmer_usage.keys())
+        consumer_data.genome_kmer_usage[genome_id] = kmer_usage
 
         return consumer_data
 
@@ -143,25 +128,25 @@ class AminoAcidUsage(object):
 
         return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
-    def run(self, gene_files):
-        """Calculate amino acid usage over a set of genomes.
+    def run(self, genome_files):
+        """Calculate kmer usage over a set of genomes.
 
         Parameters
         ----------
-        gene_files : list
-            Fasta files containing called genes.
+        genome_files : list
+            Fasta files containing genomic sequences in nucleotide space.
 
         Returns
         -------
-        dict of dict : dict[genome_id][aa] -> count
-           Amino acid usage of each genome.
+        dict of dict : d[genome_id][kmer] -> count
+           Kmer usage of each genome.
         set
-           Set with all identified amino acids.
+           Set with all identified kmers.
         """
 
-        self.logger.info('  Calculating amino acid usage for each genome:')
+        self.logger.info('  Calculating kmer usage for each genome.')
 
         parallel = Parallel(self.cpus)
-        consumer_data = parallel.run(self._producer, self._consumer, gene_files, self._progress)
+        consumer_data = parallel.run(self._producer, self._consumer, genome_files, self._progress)
 
-        return consumer_data.genome_aa_usage, consumer_data.aa_set
+        return consumer_data.genome_kmer_usage, consumer_data.kmer_set
