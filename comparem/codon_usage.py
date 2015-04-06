@@ -27,7 +27,7 @@ import logging
 import ntpath
 from collections import defaultdict, namedtuple
 
-from biolib.seq_io import read_fasta
+import biolib.seq_io as seq_io
 from biolib.parallel import Parallel
 
 from numpy import mean
@@ -118,7 +118,7 @@ class CodonUsage(object):
         genome_id = genome_id.replace('.genes.fna', '')
         genome_id = os.path.splitext(genome_id)[0]
 
-        seqs = read_fasta(gene_file)
+        seqs = seq_io.read_fasta(gene_file)
         codon_usage, gene_length = self.codon_usage(seqs)
 
         return (genome_id, codon_usage, gene_length)

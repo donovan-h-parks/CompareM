@@ -2,6 +2,7 @@ from distutils.core import setup
 
 import os
 
+
 def version():
     setupDir = os.path.dirname(os.path.realpath(__file__))
     versionFile = open(os.path.join(setupDir, 'comparem', 'VERSION'))
@@ -14,11 +15,12 @@ setup(
     author_email='donovan.parks@gmail.com',
     packages=['comparem'],
     scripts=['bin/comparem'],
-    package_data={'comparem' : ['VERSION']},
+    package_data={'comparem': ['VERSION']},
     url='http://pypi.python.org/pypi/comparem/',
     license='GPL3',
     description='A toolbox for comparative genomics.',
     long_description=open('README.md').read(),
     install_requires=[
-        "numpy >= 1.8.0"],
+        "numpy >= 1.8.0",
+        "biolib >= 0.0.1"],
 )

@@ -18,6 +18,7 @@
 import os
 import sys
 import logging
+from collections import defaultdict
 
 from comparem.reciprocal_blast import ReciprocalBlast
 from comparem.reciprocal_diamond import ReciprocalDiamond
@@ -29,9 +30,9 @@ from comparem.lgt_dinucleotide import LgtDinucleotide
 from comparem.lgt_codon import LgtCodon
 from comparem.PCoA import PCoA
 
+import biolib.seq_io as seq_io
 from biolib.misc.time_keeper import TimeKeeper
 from biolib.external.prodigal import Prodigal
-from biolib.seq_io import read_fasta
 from biolib.common import (remove_extension,
                              make_sure_path_exists,
                              check_dir_exists,
@@ -44,7 +45,20 @@ class OptionsParser():
         self.time_keeper = TimeKeeper()
 
     def _genome_files(self, genome_dir, genome_ext):
-        """Identify genomes files."""
+        """Identify genomes files.
+
+        Parameters
+        ----------
+        genome_dir : str
+            Directory containing genomes of interest.
+        genome_ext : str
+            Extension of genome files.
+
+        Returns
+        -------
+        list
+            Name of genome files in directory.
+        """
 
         check_dir_exists(genome_dir)
 
@@ -64,7 +78,6 @@ class OptionsParser():
 
         Parameters
         ----------
-
         genome_usage : d[genome_id][feature] -> count
             Occurrence of genomic feature in genome
         feature_set : iterable
@@ -81,11 +94,16 @@ class OptionsParser():
             fout.write('\t' + feature)
         fout.write('\n')
 
+        totals = defaultdict(int)
+        for genome_id, features in genome_usage.iteritems():
+            for feature in sorted_feature_set:
+                totals[genome_id] += features.get(feature, 0)
+
         for genome_id, features in genome_usage.iteritems():
             fout.write(genome_id)
 
             for feature in sorted_feature_set:
-                fout.write('\t%d' % features.get(feature, 0))
+                fout.write('\t%.2f%%' % (features.get(feature, 0) * 100.0 / totals[genome_id]))
             fout.write('\n')
 
     def ani(self, options):
@@ -116,36 +134,22 @@ class OptionsParser():
         make_sure_path_exists(options.output_dir)
 
         genome_files = self._genome_files(options.genome_dir, options.genome_ext)
+        if not genome_files:
+            self.logger.warning('  [Warning] No genome files found. Check the --genome_ext flag used to identify genomes.')
+            sys.exit()
 
         prodigal = Prodigal(options.cpus)
-        prodigal.run(genome_files, False, options.output_dir)
+        summary_stats = prodigal.run(genome_files, False, options.force_table, False, options.output_dir)
 
-        # modify gene ids to include genome ids in order to ensure
-        # all gene identifiers are unique across the set of genomes,
-        # also removes the trailing asterisk used to identify the stop
-        # codon
-        self.logger.info('')
-        self.logger.info('  Appending genome identifiers to all gene identifiers.')
-        for gf in genome_files:
-            genome_id = remove_extension(gf)
-
-            nt_file = os.path.join(options.output_dir, genome_id + '.genes.fna')
-            seqs = read_fasta(nt_file)
-            fout = open(nt_file, 'w')
-            for seq_id, seq in seqs.iteritems():
-                fout.write('>' + seq_id + '~' + genome_id + '\n')
-                fout.write(seq + '\n')
-            fout.close()
-
-            aa_file = os.path.join(options.output_dir, genome_id + '.genes.faa')
-            seqs = read_fasta(aa_file)
-            fout = open(aa_file, 'w')
-            for seq_id, seq in seqs.iteritems():
-                fout.write('>' + seq_id + '~' + genome_id + '\n')
-                if seq[-1] == '*':
-                    seq = seq[0:-1]
-                fout.write(seq + '\n')
-            fout.close()
+        # write gene calling summary
+        fout = open(os.path.join(options.output_dir, 'call_genes.summary.tsv'), 'w')
+        fout.write('Genome Id\tSelected translation table\tTable 4 coding density\tTable 11 coding density\n')
+        for genome_id, stats in summary_stats.iteritems():
+            fout.write('%s\t%d\t%.2f%%\t%.2f%%\n' % (genome_id,
+                                                     stats.best_translation_table,
+                                                     stats.coding_density_4,
+                                                     stats.coding_density_11))
+        fout.close()
 
         self.logger.info('')
         self.logger.info('  Identified genes written to: %s' % options.output_dir)
@@ -172,9 +176,33 @@ class OptionsParser():
             self.logger.warning('  [Warning] No gene files found. Check the --protein_ext flag used to identify gene files.')
             sys.exit()
 
+        # modify gene ids to include genome ids in order to ensure
+        # all gene identifiers are unique across the set of genomes,
+        # also removes the trailing asterisk used to identify the stop
+        # codon
+        self.logger.info('  Appending genome identifiers to all gene identifiers.')
+        gene_out_dir = os.path.join(options.output_dir, 'genes')
+        make_sure_path_exists(gene_out_dir)
+        modified_aa_gene_files = []
+        for gf in aa_gene_files:
+            genome_id = remove_extension(gf)
+
+            aa_file = os.path.join(gene_out_dir, genome_id + '.faa')
+            fout = open(aa_file, 'w')
+            for seq_id, seq in seq_io.read_seq(gf):
+                fout.write('>' + seq_id + '~' + genome_id + '\n')
+                if seq[-1] == '*':
+                    seq = seq[0:-1]
+                fout.write(seq + '\n')
+            fout.close()
+
+            modified_aa_gene_files.append(aa_file)
+
+        # perform the reciprocal blast with blastp or diamond
+        self.logger.info('')
         if options.blastp:
             rblast = ReciprocalBlast(options.cpus)
-            rblast.run(aa_gene_files, options.evalue, options.output_dir)
+            rblast.run(modified_aa_gene_files, options.evalue, options.output_dir)
 
             # concatenate all blast tables to mimic output of diamond, all hits
             # for a given genome MUST be in consecutive order to fully mimic
@@ -186,7 +214,7 @@ class OptionsParser():
             concatenate_files(hit_tables, os.path.join(options.output_dir, 'all_hits.tsv'))
         else:
             rdiamond = ReciprocalDiamond(options.cpus)
-            rdiamond.run(aa_gene_files, options.evalue, options.per_identity, options.output_dir)
+            rdiamond.run(modified_aa_gene_files, options.evalue, options.per_identity, options.output_dir)
 
         self.logger.info('')
         self.logger.info('  Reciprocal blast hits written to: %s' % options.output_dir)
@@ -201,14 +229,14 @@ class OptionsParser():
         self.logger.info('*******************************************************************************')
         self.logger.info('')
 
-        check_dir_exists(options.protein_dir)
-        check_dir_exists(options.blast_dir)
+        check_dir_exists(options.rblast_dir)
         make_sure_path_exists(options.output_dir)
 
         genome_ids = []
-        for f in os.listdir(options.protein_dir):
-            if f.endswith(options.protein_ext):
-                genome_id = remove_extension(f, options.protein_ext)
+        protein_dir = os.path.join(options.rblast_dir, 'genes')
+        for f in os.listdir(protein_dir):
+            if f.endswith('.faa'):
+                genome_id = remove_extension(f, '.faa')
                 genome_ids.append(genome_id)
 
         if not genome_ids:
@@ -217,9 +245,8 @@ class OptionsParser():
 
         aai_calculator = AAICalculator(options.cpus)
         aai_calculator.run(genome_ids,
-                            options.protein_dir,
-                            options.blast_dir,
-                            options.protein_ext,
+                            protein_dir,
+                            options.rblast_dir,
                             options.per_identity,
                             options.per_aln_len,
                             options.write_shared_genes,
@@ -258,7 +285,7 @@ class OptionsParser():
         genome_aa_usage, aa_set = amino_acid_usage.run(gene_files)
 
         # write out results
-        self._write_usage_profile(options.output_file, genome_aa_usage, aa_set)
+        self._write_usage_profile(genome_aa_usage, aa_set, options.output_file)
 
         self.logger.info('')
         self.logger.info('  Amino acid usage written to: %s' % options.output_file)
@@ -495,13 +522,13 @@ class OptionsParser():
             options.output_dir = os.path.join(root_dir, 'genes')
             self.call_genes(options)
 
+            options.protein_ext = 'faa'
             options.protein_dir = os.path.join(root_dir, 'genes')
-            options.protein_ext = 'genes.faa'
-            options.output_dir = os.path.join(root_dir, 'blast')
+            options.output_dir = os.path.join(root_dir, 'rblast')
             self.rblast(options)
 
             options.output_dir = root_dir
-            options.blast_dir = os.path.join(root_dir, 'blast')
+            options.rblast_dir = os.path.join(root_dir, 'rblast')
             self.aai(options)
         elif(options.subparser_name == 'aa_usage'):
             self.aa_usage(options)

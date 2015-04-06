@@ -27,7 +27,7 @@ import logging
 import ntpath
 from collections import defaultdict, namedtuple
 
-from biolib.seq_io import read_fasta
+import biolib.seq_io as seq_io
 from biolib.parallel import Parallel
 
 
@@ -90,7 +90,7 @@ class AminoAcidUsage(object):
         genome_id = genome_id.replace('.genes.faa', '')
         genome_id = os.path.splitext(genome_id)[0]
 
-        seqs = read_fasta(gene_file)
+        seqs = seq_io.read_fasta(gene_file)
         aa_usage = self.amino_acid_usage(seqs)
 
         return [genome_id, aa_usage]

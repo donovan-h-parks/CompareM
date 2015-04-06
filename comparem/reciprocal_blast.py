@@ -84,8 +84,8 @@ class ReciprocalBlast(object):
 
         aa_gene_fileA, aa_gene_fileB = genome_pair
 
-        genome_idA = remove_extension(aa_gene_fileA, '.genes.faa')
-        genome_idB = remove_extension(aa_gene_fileB, '.genes.faa')
+        genome_idA = remove_extension(aa_gene_fileA)
+        genome_idB = remove_extension(aa_gene_fileB)
 
         dbA = os.path.join(self.output_dir, genome_idA + '.db')
         dbB = os.path.join(self.output_dir, genome_idB + '.db')
@@ -107,7 +107,7 @@ class ReciprocalBlast(object):
             Fasta file with genes in amino acid space.
         """
 
-        genome_id = remove_extension(aa_gene_file, '.genes.faa')
+        genome_id = remove_extension(aa_gene_file)
 
         blast_DB = os.path.join(self.output_dir, genome_id + '.db')
         log_file = os.path.join(self.output_dir, genome_id + '.log')

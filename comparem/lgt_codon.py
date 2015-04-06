@@ -28,8 +28,8 @@ import ntpath
 import operator
 from collections import defaultdict
 
-from biolib.seq_io import read_fasta
-from biolib.seq_tk import SeqTk
+import biolib.seq_io as seq_io
+import biolib.seq_tk as seq_tk
 from biolib.parallel import Parallel
 
 from numpy import mean, std
@@ -101,7 +101,7 @@ class LgtCodon(object):
         genome_codon_usage = defaultdict(int)
         gc = {}
         for gene_id, seq in seqs.iteritems():
-            gc[gene_id] = SeqTk().gc(seq)
+            gc[gene_id] = seq_tk.gc(seq)
 
             for i in xrange(0, len(seq) - 3, 3):
                 codon = seq[i:i + 3].upper()
@@ -124,7 +124,7 @@ class LgtCodon(object):
             fout.write('\t' + di)
         fout.write('\n')
 
-        genome_gc = SeqTk().gc(''.join(seqs.values()))
+        genome_gc = seq_tk.gc(''.join(seqs.values()))
         genome_sum_codon = sum(genome_codon_usage.values())
         fout.write('%s\t%.2f\t%d\t%d' % ('<complete genome>', genome_gc * 100.0, sum([len(x) for x in seqs.values()]), genome_sum_codon))
         fout.write('\t%.1f\t%.1f' % (0, 0))
@@ -156,7 +156,7 @@ class LgtCodon(object):
         genome_id = genome_id.replace('.genes.fna', '')
         genome_id = os.path.splitext(genome_id)[0]
 
-        seqs = read_fasta(gene_file)
+        seqs = seq_io.read_fasta(gene_file)
         self.codon_usage(seqs, genome_id)
 
         return True

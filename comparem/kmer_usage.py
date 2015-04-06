@@ -27,8 +27,8 @@ import logging
 import ntpath
 from collections import namedtuple
 
+import biolib.seq_io as seq_io
 from biolib.genomic_signature import GenomicSignature
-from biolib.seq_io import read_fasta
 from biolib.parallel import Parallel
 
 
@@ -75,7 +75,7 @@ class KmerUsage(object):
         genome_id = ntpath.basename(genome_file)
         genome_id = os.path.splitext(genome_id)[0]
 
-        seqs = read_fasta(genome_file)
+        seqs = seq_io.read_fasta(genome_file)
         kmer_usage = self.signatures.calculate(seqs)
 
         return (genome_id, kmer_usage)
