@@ -106,7 +106,7 @@ if __name__ == '__main__':
                                         description='Identify genes within genomes.')
     call_genes_parser.add_argument('genome_dir', help="directory containing genomes")
     call_genes_parser.add_argument('output_dir', help="output directory")
-    call_genes_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in folder are ignored)")
+    call_genes_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in directory are ignored)")
     call_genes_parser.add_argument('--force_table', type=int, default=None, help="force use of specific translation table")
     call_genes_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
 
@@ -118,7 +118,7 @@ if __name__ == '__main__':
     rblast_parser.add_argument('output_dir', help="output directory")
     rblast_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value for reporting valid blast hits")
     rblast_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for reporting valid blast hits")
-    rblast_parser.add_argument('--protein_ext', default='faa', help="extension of amino acid gene files (other files in folder are ignored)")
+    rblast_parser.add_argument('--protein_ext', default='genes.faa', help="extension of amino acid gene files (other files in directory are ignored)")
     rblast_parser.add_argument('--blastp', action="store_true", default=False, help="use blastp instead of diamond")
     rblast_parser.add_argument('--tmpdir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
     rblast_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
@@ -131,6 +131,7 @@ if __name__ == '__main__':
     aai_parser.add_argument('output_dir', help="output directory")
     aai_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
     aai_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
+    aai_parser.add_argument('--protein_ext', default='genes.faa', help="extension of amino acid gene files (other files in directory are ignored)")
     aai_parser.add_argument('--write_shared_genes', help="write homologous genes in each genome pair to file", action='store_true')
     aai_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
 
@@ -145,7 +146,7 @@ if __name__ == '__main__':
     aai_wf_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
     aai_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
     aai_wf_parser.add_argument('--blastp', action="store_true", default=False, help="use blastp instead of diamond")
-    aai_wf_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in folder are ignored)")
+    aai_wf_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in directory are ignored)")
     aai_wf_parser.add_argument('--write_shared_genes', help="write homologous genes in each genome pair to file", action='store_true')
     aai_wf_parser.add_argument('--force_table', type=int, default=None, help="force use of specific translation table")
     aai_wf_parser.add_argument('--tmpdir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
@@ -157,7 +158,7 @@ if __name__ == '__main__':
                                         description='Calculate amino acid usage within each genome.')
     aa_usage_parser.add_argument('protein_dir', help="directory containing fasta files with called genes in amino acid space")
     aa_usage_parser.add_argument('output_file', help="file indicating genes amino acid usage for each genome")
-    aa_usage_parser.add_argument('--protein_ext', default='faa', help="extension of amino acid gene files (other files in folder are ignored)")
+    aa_usage_parser.add_argument('--protein_ext', default='genes.faa', help="extension of amino acid gene files (other files in directory are ignored)")
     aa_usage_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
 
     # calculate codon usage
@@ -166,7 +167,7 @@ if __name__ == '__main__':
                                         description='Calculate codon usage within each genome.')
     codon_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
     codon_parser.add_argument('output_file', help="output file indicating codon usage of each genome")
-    codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in folder are ignored)")
+    codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in directory are ignored)")
     codon_parser.add_argument('--keep_ambiguous', action='store_true', help="keep codons with ambiguous bases")
     codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
 
@@ -177,7 +178,7 @@ if __name__ == '__main__':
     kmer_parser.add_argument('genome_dir', help="directory containing genomes")
     kmer_parser.add_argument('output_file', help="output file indicating kmer usage of each genome")
     kmer_parser.add_argument('-k', type=int, default=4, help="length of kmers, e.g., 4 -> tetranucleotides")
-    kmer_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in folder are ignored)")
+    kmer_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in directory are ignored)")
     kmer_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
 
     # calculate stop codon usage
@@ -186,7 +187,7 @@ if __name__ == '__main__':
                                         description='Calculate stop codon usage within each genome.')
     stop_codon_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
     stop_codon_parser.add_argument('output_file', help="output file indicating stop codon usage of each genome")
-    stop_codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in folder are ignored)")
+    stop_codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in directory are ignored)")
     stop_codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
 
     # identify LGT using dinucleotide (3rd, 1st) usage
@@ -195,7 +196,7 @@ if __name__ == '__main__':
                                         description='Calculate dinuceotide (3rd,1st) usage of genes  to identify putative LGT events.')
     lgt_di_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
     lgt_di_parser.add_argument('output_dir', help="output directory to write dinucleotide usage for each gene in each genome")
-    lgt_di_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in folder are ignored)")
+    lgt_di_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in directory are ignored)")
     lgt_di_parser.add_argument('--crit_value', type=float, default=0.001, help="critical value for defining deviant genes")
     lgt_di_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
 
@@ -205,7 +206,7 @@ if __name__ == '__main__':
                                         description='Calculate codon usage of genes to identify putative LGT events.')
     lgt_codon_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
     lgt_codon_parser.add_argument('output_dir', help="output directory to write dinucleotide usage for each gene in each genome")
-    lgt_codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in folder are ignored)")
+    lgt_codon_parser.add_argument('--gene_ext', default='genes.fna', help="extension of gene files (other files in directory are ignored)")
     lgt_codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
 
     # unique
