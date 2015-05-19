@@ -129,7 +129,6 @@ class OptionsParser():
         self.logger.info('*******************************************************************************')
         self.logger.info(' [CompareM - call_genes] Identifying genes within genomes.')
         self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
         make_sure_path_exists(options.output_dir)
 
@@ -162,7 +161,6 @@ class OptionsParser():
         self.logger.info('*******************************************************************************')
         self.logger.info(' [CompareM - rblast] Performing reciprocal blast between genomes.')
         self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
         check_dir_exists(options.protein_dir)
         make_sure_path_exists(options.output_dir)
@@ -180,6 +178,7 @@ class OptionsParser():
         # all gene identifiers are unique across the set of genomes,
         # also removes the trailing asterisk used to identify the stop
         # codon
+        self.logger.info('')
         self.logger.info('  Appending genome identifiers to all gene identifiers.')
         gene_out_dir = os.path.join(options.output_dir, 'genes')
         make_sure_path_exists(gene_out_dir)
@@ -189,8 +188,8 @@ class OptionsParser():
 
             aa_file = os.path.join(gene_out_dir, genome_id + '.faa')
             fout = open(aa_file, 'w')
-            for seq_id, seq in seq_io.read_seq(gf):
-                fout.write('>' + seq_id + '~' + genome_id + '\n')
+            for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
+                fout.write('>' + seq_id + '~' + genome_id + ' ' + annotation + '\n')
                 if seq[-1] == '*':
                     seq = seq[0:-1]
                 fout.write(seq + '\n')

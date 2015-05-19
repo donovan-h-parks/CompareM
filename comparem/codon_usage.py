@@ -102,7 +102,7 @@ class CodonUsage(object):
         Parameters
         ----------
         gene_file : str
-            Fasta file containing amino acid sequences.
+            Fasta file containing nucleotide sequences.
 
         Returns
         -------

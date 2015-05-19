@@ -308,7 +308,7 @@ class LgtDinucleotide(object):
         return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
     def run(self, gene_files, critical_value, output_dir):
-        """Calculate codon usage over a set of genomes.
+        """Calculate dinucleotide usage over a set of genomes.
 
         Parameters
         ----------
@@ -326,7 +326,7 @@ class LgtDinucleotide(object):
 
         self.critical_value = critical_value
 
-        self.logger.info('  Calculating codon usage for each genome.')
+        self.logger.info('  Calculating dinucleotide usage for each genome.')
 
         parallel = Parallel(self.cpus)
         parallel.run(self._producer, None, gene_files, self._progress)
