@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/opt/qiime/1.8.0/python-2.7.3-release/bin/python
 
 ###############################################################################
 #                                                                             #
@@ -87,6 +87,7 @@ def print_help():
 
     Plots:
      pcoa_plot    -> [Not implemented] Generate PCoA plot indicating relative similarity of genomes
+     heatmap      -> Generate a heatmap of the similarities between genomes
 
   Use: comparem <command> -h for command specific help.
 
@@ -230,6 +231,18 @@ if __name__ == '__main__':
     pcoa_plot_parser.add_argument('--image_type', default='png', choices=['eps', 'pdf', 'png', 'ps', 'svg'], help='desired image type')
     pcoa_plot_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
     pcoa_plot_parser.add_argument('--font_size', type=int, default=8, help='Desired font size')
+
+    # produce a heatmap
+    heatmap_parser = subparsers.add_parser('heatmap',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Generate heatmap indicating relative similarity of genomes.')
+    heatmap_parser.add_argument('aai_summary_file', help="file indicating pairwise AAI between genomes")
+    heatmap_parser.add_argument('output_file', help="output name for the heatmap. File extension is used to determine image type (e.g. png, pdf, svg)")
+    #heatmap_parser.add_argument('--width', type=float, default=6.5, help='width of output image')
+    #heatmap_parser.add_argument('--height', type=float, default=6.5, help='height of output image')
+    #heatmap_parser.add_argument('--image_type', default='png', choices=['eps', 'pdf', 'png', 'ps', 'svg'], help='desired image type')
+    #heatmap_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
+    #heatmap_parser.add_argument('--font_size', type=int, default=8, help='Desired font size')
 
     # get and check options
     args = None

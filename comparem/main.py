@@ -29,6 +29,7 @@ from comparem.kmer_usage import KmerUsage
 from comparem.lgt_dinucleotide import LgtDinucleotide
 from comparem.lgt_codon import LgtCodon
 from comparem.PCoA import PCoA
+from comparem.heatmap import Heatmap
 
 import biolib.seq_io as seq_io
 from biolib.misc.time_keeper import TimeKeeper
@@ -490,6 +491,21 @@ class OptionsParser():
 
         self.time_keeper.print_time_stamp()
 
+    def heatmap(self, options):
+        """Unique command"""
+        self.logger.info('')
+        self.logger.info('*******************************************************************************')
+        self.logger.info(' [CompareM - heatmap] Generating heatmap showing relative similarity of genomes.')
+        self.logger.info('*******************************************************************************')
+        self.logger.info('')
+
+        self.logger.info('  making heatmap.\n')
+        heatmapper = Heatmap(options.aai_summary_file, options.output_file)
+        heatmapper.plot()
+
+        self.time_keeper.print_time_stamp()
+
+
     def parse_options(self, options):
         """Parse user options and call the correct pipeline(s)"""
         try:
@@ -545,8 +561,10 @@ class OptionsParser():
             self.unique(options)
         elif(options.subparser_name == 'pcoa_plot'):
             self.pcoa_plot(options)
+        elif(options.subparser_name == 'heatmap'):
+            self.heatmap(options)
         else:
-            self.logger.error('  [Error] Unknown CompareM command: ' + options.subparser_name + '\n')
+            self.logger.error('  [Error] Unknown CompareM command: "' + options.subparser_name + '"\n')
             sys.exit()
 
         return 0
