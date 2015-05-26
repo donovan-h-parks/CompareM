@@ -91,10 +91,10 @@ class ReciprocalBlast(object):
         dbB = os.path.join(self.output_dir, genome_idB + '.db')
 
         output_fileAB = os.path.join(self.output_dir, genome_idA + '-' + genome_idB + '.blastp.tsv')
-        blast.blastp(aa_gene_fileA, dbB, self.evalue, 'standard', output_fileAB)
+        blast.blastp(aa_gene_fileA, dbB, output_fileAB, self.evalue)
 
         output_fileBA = os.path.join(self.output_dir, genome_idB + '-' + genome_idA + '.blastp.tsv')
-        blast.blastp(aa_gene_fileB, dbA, self.evalue, 'standard', output_fileBA)
+        blast.blastp(aa_gene_fileB, dbA, output_fileBA, self.evalue)
 
         return True
 

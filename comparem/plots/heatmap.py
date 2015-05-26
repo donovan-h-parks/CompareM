@@ -17,18 +17,27 @@
 
 from __future__ import division
 
+__author__ = 'Connor Skennerton'
+__copyright__ = 'Copyright 2015'
+__credits__ = ['Connor Skennerton']
+__license__ = 'GPL3'
+__maintainer__ = 'Connor Skennerton'
+
+import re
+from itertools import permutations
+
 import numpy as np
-import matplotlib as mpl
-mpl.use('Agg')
+
 import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 from matplotlib.path import Path
 import matplotlib.patches as patches
 import matplotlib.gridspec as gridspec
 
-from itertools import permutations
+from biolib.common import alphanumeric_sort
 
-import re
+# import mpld3
+# from comparem.plots.mpld3_plugins import Tooltip
+
 
 class Heatmap(object):
     def __init__(self, infile, outfile='test.png', tree_file=None):
@@ -60,7 +69,7 @@ class Heatmap(object):
         self.perc_ids = np.zeros([len(self.genomes), len(self.genomes)])
         self.perc_aln = np.zeros([len(self.genomes), len(self.genomes)])
         genome_to_index = {}
-        for n, g in enumerate(sorted(self.genomes)):
+        for n, g in enumerate(alphanumeric_sort(self.genomes)):
             genome_to_index[g] = n
 
         for g1, g2 in permutations(self.genomes, 2):
@@ -70,8 +79,6 @@ class Heatmap(object):
             except:
                 self.perc_ids[genome_to_index[g1], genome_to_index[g2]] = data[g2][g1][3]
                 self.perc_aln[genome_to_index[g1], genome_to_index[g2]] = (data[g2][g1][2] / (data[g2][g1][0] + data[g2][g1][1] - data[g2][g1][2])) * 100
-
-
 
     def plot(self):
         ''' Make a single heatmap using the percentage alignment and identity
@@ -92,18 +99,20 @@ class Heatmap(object):
                         and columns of the matrix
         '''
 
+        self.fig = plt.figure(figsize=(0.3 * len(self.genomes), 0.3 * len(self.genomes)))
 
-        fig = plt.figure(figsize=(0.5*len(self.genomes), 0.5*len(self.genomes)))
+        # mpld3.plugins.clear(self.fig)
+        # mpld3.plugins.connect(self.fig, mpld3.plugins.Reset(), mpld3.plugins.BoxZoom(), mpld3.plugins.Zoom())
 
         gs = gridspec.GridSpec(2, 2,
-                           height_ratios=[40,1]
+                           height_ratios=[40, 1]
                            )
         ax = plt.subplot(gs[0, :])
-        cba_ax = plt.subplot(gs[1,0])
-        cbb_ax = plt.subplot(gs[1,1])
-        #ax = fig.add_subplot(111)
+        cba_ax = plt.subplot(gs[1, 0])
+        cbb_ax = plt.subplot(gs[1, 1])
+        # ax = self.fig.add_subplot(111)
 
-        #if tree_file is not None:
+        # if tree_file is not None:
         #    try:
         #        from Bio import Phylo
         #    except ImportError:
@@ -123,24 +132,23 @@ class Heatmap(object):
 
         merged = np.tril(self.perc_ids) + np.triu(self.perc_aln)
 
-
-        mask_upper   = np.transpose(np.tri(merged.shape[0]))
-        mask_lower   = np.tri(merged.shape[0])
+        mask_upper = np.transpose(np.tri(merged.shape[0]))
+        mask_lower = np.tri(merged.shape[0])
         merged_lower = np.ma.masked_array(merged, mask=mask_lower)
         merged_upper = np.ma.masked_array(merged, mask=mask_upper)
 
-        pa      = ax.pcolormesh(merged_lower, cmap=plt.get_cmap('Blues')) #,
-                        #'sequential', 9).mpl_colormap)
-        pb      = ax.pcolormesh(merged_upper, cmap=plt.get_cmap('Purples')) #,
-                        #'sequential', 9).mpl_colormap)
+        pa = ax.pcolormesh(merged_lower, cmap=plt.get_cmap('Blues'))  # ,
+                        # 'sequential', 9).mpl_colormap)
+        pb = ax.pcolormesh(merged_upper, cmap=plt.get_cmap('Purples'))  # ,
+                        # 'sequential', 9).mpl_colormap)
 
         xticks = np.arange(0.5, merged.shape[1] + 0.5)
         ax.set_xticks(xticks)
-        ax.set_xticklabels(sorted(self.genomes), rotation=45, ha='right')
+        ax.set_xticklabels(alphanumeric_sort(self.genomes), rotation=45, ha='right')
 
         yticks = np.arange(0.5, merged.shape[1] + 0.5)
         ax.set_yticks(yticks)
-        ax.set_yticklabels(sorted(self.genomes))
+        ax.set_yticklabels(alphanumeric_sort(self.genomes))
 
         spines = ['top', 'bottom', 'right', 'left', 'polar']
         for spine in spines:
@@ -162,25 +170,25 @@ class Heatmap(object):
 
         N = merged.shape[1]
         verts = [
-                [0,1]
+                [0, 1]
                 ]
         verts.append([0, N])
-        for i in reversed(range(2, N+1)):
-            verts.append([i-1,i])
-            verts.append([i-1,i-1])
-        verts.append([0,1])
+        for i in reversed(range(2, N + 1)):
+            verts.append([i - 1, i])
+            verts.append([i - 1, i - 1])
+        verts.append([0, 1])
         verts = np.array(verts)
 
         codes = [
                 Path.MOVETO
                 ]
-        for i in range(len(verts)-2):
+        for i in range(len(verts) - 2):
             codes.append(Path.LINETO)
         codes.append(Path.CLOSEPOLY)
 
         verts1 = np.copy(verts)
-        verts1 = verts1[:,::-1]
-        verts1[:,0] = verts1[:,0]
+        verts1 = verts1[:, ::-1]
+        verts1[:, 0] = verts1[:, 0]
         verts1 = verts1
 
         path = Path(verts, codes)
@@ -199,5 +207,48 @@ class Heatmap(object):
         cba.set_label('Ortholog %', fontsize=10)
         cbb.set_label('AAI %', fontsize=10)
 
+        # setup tooltips
+        if False:
+            # work in progress
+            labels = []
+            for r in xrange(0, merged.shape[0]):
+                for c in xrange(0, merged.shape[1]):
+                    labels.append(merged[r][c])
+            tooltip = Tooltip(pa, labels=labels, hoffset=5, voffset=-15)
+            mpld3.plugins.connect(self.fig, tooltip)
+
         plt.tight_layout()
-        fig.savefig(self.outfile)
+        self.fig.savefig(self.outfile)
+
+    def save_html(self, output_html):
+        """Save figure as HTML.
+
+        Parameters
+        ----------
+        output_html : str
+            Name of output file.
+        """
+
+        html_script = Tooltip.script_global
+        html_body = Tooltip.html_body
+
+        # modify figure properties for better web viewing
+        prev_dpi = self.fig.dpi
+        self.fig.dpi = 96
+        html_str = mpld3.fig_to_html(self.fig, template_type='simple')
+
+        if html_script:
+            html_script_start = html_str.find('<script type="text/javascript">') + len('<script type="text/javascript">')
+            html_str = html_str[0:html_script_start] + '\n' + html_script + '\n' + html_str[html_script_start:]
+
+        if html_body:
+            html_str += '\n<body>\n' + html_body + '\n</body>\n'
+
+        html_str = '<center>' + html_str + '</center>'
+
+        fout = open(output_html, 'w')
+        fout.write(html_str)
+        fout.close()
+
+        # restore figure properties
+        self.fig.dpi = prev_dpi

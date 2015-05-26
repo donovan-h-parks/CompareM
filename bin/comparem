@@ -1,4 +1,4 @@
-#!/opt/qiime/1.8.0/python-2.7.3-release/bin/python
+#!/srv/sw/python/2.7.4/bin/python
 
 ###############################################################################
 #                                                                             #
@@ -236,13 +236,13 @@ if __name__ == '__main__':
     heatmap_parser = subparsers.add_parser('heatmap',
                                         formatter_class=CustomHelpFormatter,
                                         description='Generate heatmap indicating relative similarity of genomes.')
-    heatmap_parser.add_argument('aai_summary_file', help="file indicating pairwise AAI between genomes")
-    heatmap_parser.add_argument('output_file', help="output name for the heatmap. File extension is used to determine image type (e.g. png, pdf, svg)")
-    #heatmap_parser.add_argument('--width', type=float, default=6.5, help='width of output image')
-    #heatmap_parser.add_argument('--height', type=float, default=6.5, help='height of output image')
-    #heatmap_parser.add_argument('--image_type', default='png', choices=['eps', 'pdf', 'png', 'ps', 'svg'], help='desired image type')
-    #heatmap_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
-    #heatmap_parser.add_argument('--font_size', type=int, default=8, help='Desired font size')
+    heatmap_parser.add_argument('aai_summary_file', help="File indicating pairwise AAI between genomes")
+    heatmap_parser.add_argument('output_file', help="Output name for the heatmap. File extension is used to determine image type (e.g. png, pdf, svg)")
+    # heatmap_parser.add_argument('--width', type=float, default=6.5, help='width of output image')
+    # heatmap_parser.add_argument('--height', type=float, default=6.5, help='height of output image')
+    # heatmap_parser.add_argument('--image_type', default='png', choices=['eps', 'pdf', 'png', 'ps', 'svg'], help='desired image type')
+    # heatmap_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
+    # heatmap_parser.add_argument('--font_size', type=int, default=8, help='Desired font size')
 
     # get and check options
     args = None

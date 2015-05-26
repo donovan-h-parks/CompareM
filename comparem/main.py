@@ -29,7 +29,7 @@ from comparem.kmer_usage import KmerUsage
 from comparem.lgt_dinucleotide import LgtDinucleotide
 from comparem.lgt_codon import LgtCodon
 from comparem.PCoA import PCoA
-from comparem.heatmap import Heatmap
+from comparem.plots.heatmap import Heatmap
 
 import biolib.seq_io as seq_io
 from biolib.misc.time_keeper import TimeKeeper
@@ -473,7 +473,6 @@ class OptionsParser():
         self.logger.info('*******************************************************************************')
         self.logger.info(' [CompareM - unique] Identifying genes present in a single genome.')
         self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
         self.time_keeper.print_time_stamp()
 
@@ -483,9 +482,9 @@ class OptionsParser():
         self.logger.info('*******************************************************************************')
         self.logger.info(' [CompareM - pcoa_plot] Generating PCoA plot showing relative similarity of genomes.')
         self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
-        self.logger.info('  Performing PCoA.\n')
+        self.logger.info('')
+        self.logger.info('  Performing PCoA.')
         pcoa = PCoA()
         pcoa.plot(options.aai_summary_file)
 
@@ -497,14 +496,13 @@ class OptionsParser():
         self.logger.info('*******************************************************************************')
         self.logger.info(' [CompareM - heatmap] Generating heatmap showing relative similarity of genomes.')
         self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
-        self.logger.info('  making heatmap.\n')
+        self.logger.info('')
+        self.logger.info('  Making heatmap.')
         heatmapper = Heatmap(options.aai_summary_file, options.output_file)
         heatmapper.plot()
 
         self.time_keeper.print_time_stamp()
-
 
     def parse_options(self, options):
         """Parse user options and call the correct pipeline(s)"""
