@@ -32,6 +32,8 @@ import matplotlib.pyplot as plt
 from matplotlib.path import Path
 import matplotlib.patches as patches
 import matplotlib.gridspec as gridspec
+from scipy.cluster import hierarchy
+from scipy.spatial import distance
 
 from biolib.common import alphanumeric_sort
 
@@ -43,20 +45,22 @@ class Heatmap(object):
     def __init__(self, infile, outfile='test.png', tree_file=None):
         self.tree_file = tree_file
         self.outfile = outfile
-        self.genomes = set()
+        self.genomes = None
         self._parse_data(infile)
+
 
     def _parse_data(self, infile):
         data = {}
         with open(infile) as fp:
             # waste the first line as that's the header
             next(fp)
+            genomes = set()
             for line in fp:
                 fields = line.rstrip().split('\t')
                 fields[0] = re.sub(r'_genes$', "", fields[0])
                 fields[2] = re.sub(r'_genes$', "", fields[2])
-                self.genomes.add(fields[0])
-                self.genomes.add(fields[2])
+                genomes.add(fields[0])
+                genomes.add(fields[2])
                 try:
                     data[fields[0]][fields[2]] = [int(fields[1]), int(fields[3]), int(fields[4]), float(fields[5])]
                 except KeyError:
@@ -66,13 +70,16 @@ class Heatmap(object):
                     print fields
                     raise e
 
-        self.perc_ids = np.zeros([len(self.genomes), len(self.genomes)])
-        self.perc_aln = np.zeros([len(self.genomes), len(self.genomes)])
+        self.perc_ids = np.zeros([len(genomes), len(genomes)])
+        self.perc_aln = np.zeros([len(genomes), len(genomes)])
         genome_to_index = {}
-        for n, g in enumerate(alphanumeric_sort(self.genomes)):
+        self.genomes = [None] * len(genomes)
+        for n, g in enumerate(alphanumeric_sort(genomes)):
             genome_to_index[g] = n
+            self.genomes[n] = g
 
-        for g1, g2 in permutations(self.genomes, 2):
+        self.genomes = np.array(self.genomes)
+        for g1, g2 in permutations(genomes, 2):
             try:
                 self.perc_ids[genome_to_index[g1], genome_to_index[g2]] = data[g1][g2][3]
                 self.perc_aln[genome_to_index[g1], genome_to_index[g2]] = (data[g1][g2][2] / (data[g1][g2][0] + data[g1][g2][1] - data[g1][g2][2])) * 100
@@ -80,7 +87,17 @@ class Heatmap(object):
                 self.perc_ids[genome_to_index[g1], genome_to_index[g2]] = data[g2][g1][3]
                 self.perc_aln[genome_to_index[g1], genome_to_index[g2]] = (data[g2][g1][2] / (data[g2][g1][0] + data[g2][g1][1] - data[g2][g1][2])) * 100
 
-    def plot(self):
+    def hierarchial_cluster(self, method, metric):
+        clusters = hierarchy.linkage(self.perc_ids, method=method, metric=metric)
+        ordering = hierarchy.leaves_list(clusters)
+        self.perc_ids = self.perc_ids[ordering,:]
+        self.perc_ids = self.perc_ids[:, ordering]
+        self.perc_aln = self.perc_aln[ordering,:]
+        self.perc_aln = self.perc_aln[:, ordering]
+        self.genomes = self.genomes[ordering]
+
+
+    def plot(self, cluster=False, method='average', metric='euclidean'):
         ''' Make a single heatmap using the percentage alignment and identity
 
             Both of the matrixes are assumed to be 2-D and will be interleaved
@@ -98,8 +115,9 @@ class Heatmap(object):
             tree_file:  file containing a newick tree used for ordering the rows
                         and columns of the matrix
         '''
-
-        self.fig = plt.figure(figsize=(0.3 * len(self.genomes), 0.3 * len(self.genomes)))
+        if cluster:
+            self.hierarchial_cluster(method, metric)
+        self.fig = plt.figure(figsize=(0.4 * len(self.genomes), 0.4 * len(self.genomes)))
 
         # mpld3.plugins.clear(self.fig)
         # mpld3.plugins.connect(self.fig, mpld3.plugins.Reset(), mpld3.plugins.BoxZoom(), mpld3.plugins.Zoom())
@@ -144,11 +162,11 @@ class Heatmap(object):
 
         xticks = np.arange(0.5, merged.shape[1] + 0.5)
         ax.set_xticks(xticks)
-        ax.set_xticklabels(alphanumeric_sort(self.genomes), rotation=45, ha='right')
+        ax.set_xticklabels(self.genomes, rotation=45, ha='right')
 
         yticks = np.arange(0.5, merged.shape[1] + 0.5)
         ax.set_yticks(yticks)
-        ax.set_yticklabels(alphanumeric_sort(self.genomes))
+        ax.set_yticklabels(self.genomes)
 
         spines = ['top', 'bottom', 'right', 'left', 'polar']
         for spine in spines:

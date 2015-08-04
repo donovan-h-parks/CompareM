@@ -238,11 +238,11 @@ if __name__ == '__main__':
                                         description='Generate heatmap indicating relative similarity of genomes.')
     heatmap_parser.add_argument('aai_summary_file', help="File indicating pairwise AAI between genomes")
     heatmap_parser.add_argument('output_file', help="Output name for the heatmap. File extension is used to determine image type (e.g. png, pdf, svg)")
-    # heatmap_parser.add_argument('--width', type=float, default=6.5, help='width of output image')
-    # heatmap_parser.add_argument('--height', type=float, default=6.5, help='height of output image')
+    heatmap_parser.add_argument('--method', choices=['single', 'complete', 'average', 'weighted', 'centroid', 'median', 'ward'], default='average', help='select the method of clustering. See http://docs.scipy.org/doc/scipy-0.14.0/reference/generated/scipy.cluster.hierarchy.linkage.html for more information')
+    heatmap_parser.add_argument('--metric', choices=['euclidean', 'minkowski', 'cityblock', 'seuclidean', 'sqeuclidean', 'cosine', 'correlation', 'hamming', 'jaccard', 'chebyshev', 'canberra', 'braycurtis', 'mahalanobis', 'yule', 'matching', 'dice', 'kulsinski', 'rogerstanimoto', 'russellrao', 'sokalmichener', 'sokalsneath', 'wminkowski'], default='euclidean', help='the distance metric to use for clustering. See http://docs.scipy.org/doc/scipy/reference/generated/scipy.spatial.distance.pdist.html#scipy.spatial.distance.pdist for more information')
     # heatmap_parser.add_argument('--image_type', default='png', choices=['eps', 'pdf', 'png', 'ps', 'svg'], help='desired image type')
     # heatmap_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
-    # heatmap_parser.add_argument('--font_size', type=int, default=8, help='Desired font size')
+    heatmap_parser.add_argument('--hierarchical_cluster', action='store_true', default=False, dest='cluster', help='perform hierarchical clustering on the values')
 
     # get and check options
     args = None

@@ -500,7 +500,7 @@ class OptionsParser():
         self.logger.info('')
         self.logger.info('  Making heatmap.')
         heatmapper = Heatmap(options.aai_summary_file, options.output_file)
-        heatmapper.plot()
+        heatmapper.plot(options.cluster, options.method, options.metric)
 
         self.time_keeper.print_time_stamp()
 
