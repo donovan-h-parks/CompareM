@@ -13,7 +13,7 @@ setup(
     version=version(),
     author='Donovan Parks',
     author_email='donovan.parks@gmail.com',
-    packages=['comparem','comparem.plots'],
+    packages=['comparem', 'comparem.plots'],
     scripts=['bin/comparem'],
     package_data={'comparem': ['VERSION']},
     url='http://pypi.python.org/pypi/comparem/',
