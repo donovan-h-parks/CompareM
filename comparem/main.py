@@ -139,7 +139,7 @@ class OptionsParser():
             sys.exit()
 
         prodigal = Prodigal(options.cpus)
-        summary_stats = prodigal.run(genome_files, False, options.force_table, False, options.output_dir)
+        summary_stats = prodigal.run(genome_files, options.proteins, options.force_table, False, options.output_dir)
 
         # write gene calling summary
         fout = open(os.path.join(options.output_dir, 'call_genes.summary.tsv'), 'w')
