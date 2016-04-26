@@ -21,6 +21,6 @@ setup(
     description='A toolbox for comparative genomics.',
     long_description=open('README.md').read(),
     install_requires=[
-        "numpy >= 1.8.0",
-        "biolib >= 0.0.17"],
+        "numpy >= 1.9.0",
+        "biolib >= 0.0.18"],
 )

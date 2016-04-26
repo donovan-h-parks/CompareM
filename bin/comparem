@@ -35,6 +35,7 @@ import argparse
 from comparem.main import OptionsParser
 
 from biolib.common import make_sure_path_exists
+from biolib.logger import logger_setup
 from biolib.misc.custom_help_formatter import ChangeTempAction, CustomHelpFormatter
 
 """
@@ -53,9 +54,9 @@ To do:
 
 
 def version():
-    binDir = os.path.dirname(os.path.realpath(__file__))
-    versionFile = open(os.path.join(binDir, '..', 'comparem', 'VERSION'))
-    return versionFile.read().strip()
+    import comparem
+    version_file = open(os.path.join(comparem.__path__[0], 'VERSION'))
+    return version_file.read().strip()
 
 
 def print_help():
@@ -97,39 +98,6 @@ def print_help():
   Feature requests or bug reports can be sent to Donovan Parks (donovan.parks@gmail.com)
     or posted on GitHub (https://github.com/dparks1134/comparem).
     '''
-    
-def logger_setup(output_dir, silent):
-    """Set logging for application.
-
-    Parameters
-    ----------
-    output_dir : str
-        Output directory for log file.
-    silent : boolean
-        Flag indicating if output to stdout should be suppressed.
-    """
-
-    # setup general properties of logger
-    logger = logging.getLogger('')
-    logger.setLevel(logging.DEBUG)
-    log_format = logging.Formatter(fmt="[%(asctime)s] %(levelname)s: %(message)s",
-                                   datefmt="%Y-%m-%d %H:%M:%S")
-
-    # setup logging to console
-    if not silent:
-        stream_logger = logging.StreamHandler(sys.stdout)
-        stream_logger.setFormatter(log_format)
-        stream_logger.setLevel(logging.DEBUG)
-        logger.addHandler(stream_logger)
-
-    if output_dir:
-        make_sure_path_exists(output_dir)
-        file_logger = logging.FileHandler(os.path.join(output_dir, 'comparem.log'), 'a')
-        file_logger.setFormatter(log_format)
-        logger.addHandler(file_logger)
-
-    logger.info('CompareM v%s' % version())
-    logger.info(ntpath.basename(sys.argv[0]) + ' ' + ' '.join(sys.argv[1:]))
 
 if __name__ == '__main__':
 
@@ -303,9 +271,9 @@ if __name__ == '__main__':
         args = parser.parse_args()
        
     try:
-        logger_setup(args.output_dir, args.silent)
+        logger_setup(args.output_dir, "comparem.log", "CompareM", version(), args.silent)
     except:
-        logger_setup(None, args.silent)
+        logger_setup(args.output_dir, "comparem.log", "CompareM", version(), args.silent)
 
     # do what we came here to do
     try:
