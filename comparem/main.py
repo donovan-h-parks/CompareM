@@ -484,11 +484,15 @@ class OptionsParser():
             root_dir = options.output_dir
             make_sure_path_exists(root_dir)
 
-            options.output_dir = os.path.join(root_dir, 'genes')
-            self.call_genes(options)
+	    if options.proteins:
+		options.protein_dir = options.genome_dir
+		options.protein_ext = options.genome_ext
+	    else:
+            	options.output_dir = os.path.join(root_dir, 'genes')
+            	self.call_genes(options)
+	        options.protein_dir = os.path.join(root_dir, 'genes')
+            	options.protein_ext = 'faa'
 
-            options.protein_ext = 'faa'
-            options.protein_dir = os.path.join(root_dir, 'genes')
             options.output_dir = os.path.join(root_dir, 'rblast')
             self.rblast(options)
 
