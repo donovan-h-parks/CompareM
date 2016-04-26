@@ -53,7 +53,7 @@ class ReciprocalDiamond(object):
 
         self.cpus = cpus
 
-    def run(self, aa_gene_files, evalue, per_identity, output_dir):
+    def run(self, aa_gene_files, evalue, per_identity, per_aln_len, output_dir):
         """Apply reciprocal blast to all pairs of genomes in parallel.
 
         Parameters
@@ -64,12 +64,14 @@ class ReciprocalDiamond(object):
             E-value threshold for reporting hits.
         per_identity : float
             Percent identity threshold for reporting hits.
+        per_aln_len : float
+            Percent query coverage threshold for reporting hits.
         output_dir : str
             Directory to store blast results.
         """
 
         # concatenate all gene files and create a single diamond database
-        self.logger.info('  Creating diamond database (be patient!).')
+        self.logger.info('Creating diamond database (be patient!).')
         gene_file = os.path.join(output_dir, 'all_genes.faa')
         concatenate_files(aa_gene_files, gene_file)
         diamond_db = os.path.join(output_dir, 'all_genes')
@@ -78,12 +80,11 @@ class ReciprocalDiamond(object):
         diamond.make_database(gene_file, diamond_db)
 
         # blast all genes against the database
-        self.logger.info('')
-        self.logger.info('  Identifying hits between all pairs of genomes (be patient!).')
+        self.logger.info('Identifying hits between all pairs of genomes (be patient!).')
         hits_daa_file = os.path.join(output_dir, 'all_hits')
-        diamond.blastp(gene_file, diamond_db, evalue, per_identity, len(aa_gene_files) * 10, hits_daa_file)
+        diamond.blastp(gene_file, diamond_db, evalue, per_identity, per_aln_len, len(aa_gene_files) * 10, hits_daa_file)
 
         # create flat hits table
-        self.logger.info('  Creating table with hits.')
+        self.logger.info('Creating table with hits.')
         hits_table_file = os.path.join(output_dir, 'all_hits.tsv')
         diamond.view(hits_daa_file + '.daa', hits_table_file)

@@ -27,11 +27,14 @@ __status__ = "Development"
 
 import os
 import sys
+import ntpath
+import logging
 import tempfile
 import argparse
 
 from comparem.main import OptionsParser
 
+from biolib.common import make_sure_path_exists
 from biolib.misc.custom_help_formatter import ChangeTempAction, CustomHelpFormatter
 
 """
@@ -94,6 +97,39 @@ def print_help():
   Feature requests or bug reports can be sent to Donovan Parks (donovan.parks@gmail.com)
     or posted on GitHub (https://github.com/dparks1134/comparem).
     '''
+    
+def logger_setup(output_dir, silent):
+    """Set logging for application.
+
+    Parameters
+    ----------
+    output_dir : str
+        Output directory for log file.
+    silent : boolean
+        Flag indicating if output to stdout should be suppressed.
+    """
+
+    # setup general properties of logger
+    logger = logging.getLogger('')
+    logger.setLevel(logging.DEBUG)
+    log_format = logging.Formatter(fmt="[%(asctime)s] %(levelname)s: %(message)s",
+                                   datefmt="%Y-%m-%d %H:%M:%S")
+
+    # setup logging to console
+    if not silent:
+        stream_logger = logging.StreamHandler(sys.stdout)
+        stream_logger.setFormatter(log_format)
+        stream_logger.setLevel(logging.DEBUG)
+        logger.addHandler(stream_logger)
+
+    if output_dir:
+        make_sure_path_exists(output_dir)
+        file_logger = logging.FileHandler(os.path.join(output_dir, 'comparem.log'), 'a')
+        file_logger.setFormatter(log_format)
+        logger.addHandler(file_logger)
+
+    logger.info('CompareM v%s' % version())
+    logger.info(ntpath.basename(sys.argv[0]) + ' ' + ' '.join(sys.argv[1:]))
 
 if __name__ == '__main__':
 
@@ -110,6 +146,7 @@ if __name__ == '__main__':
     call_genes_parser.add_argument('--genome_ext', default='fna', help="extension of genomes (other files in directory are ignored)")
     call_genes_parser.add_argument('--force_table', type=int, default=None, help="force use of specific translation table")
     call_genes_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    call_genes_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # run reciprocal blast between genome pairs
     rblast_parser = subparsers.add_parser('rblast',
@@ -117,12 +154,15 @@ if __name__ == '__main__':
                                         description='Perform reciprocal blast between genome pairs.')
     rblast_parser.add_argument('protein_dir', help="directory containing amino acid genes in fasta format")
     rblast_parser.add_argument('output_dir', help="output directory")
-    rblast_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value for reporting valid blast hits")
-    rblast_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for reporting valid blast hits")
+    rblast_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="maximum e-value for reporting an alignments")
+    rblast_parser.add_argument('-p', '--per_identity', type=float, default=25.0, help="minimum percent identity for reporting an alignment")
+    rblast_parser.add_argument('-a', '--per_aln_len', type=float, default=50.0, help="minimum percent coverage of query sequence for reporting an alignment")
     rblast_parser.add_argument('-x', '--protein_ext', default='faa', help="extension of amino acid gene files (other files in directory are ignored)")
     rblast_parser.add_argument('--blastp', action="store_true", default=False, help="use blastp instead of diamond")
+    rblast_parser.add_argument('--genome_id_prefixed', action="store_true", default=False, help="indicates gene IDs already have the format <genome_id>~<gene_id>")
     rblast_parser.add_argument('--tmpdir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
     rblast_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    rblast_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # calculate AAI between homologs genes
     aai_parser = subparsers.add_parser('aai',
@@ -130,11 +170,11 @@ if __name__ == '__main__':
                                         description='Calculate the AAI between homologs in genome pairs.')
     aai_parser.add_argument('rblast_dir', help="directory containing results of reciprocal blast between genome pairs")
     aai_parser.add_argument('output_dir', help="output directory")
-    aai_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
-    aai_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
+    aai_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="minimum percent identity for defining homology")
+    aai_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="minimum percent coverage of query sequence for defining homology")
     aai_parser.add_argument('-x', '--protein_ext', default='faa', help="extension of amino acid gene files (other files in directory are ignored)")
-    aai_parser.add_argument('--write_shared_genes', help="write homologous genes in each genome pair to file", action='store_true')
     aai_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    aai_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # runs call_genes, blast, and calculate
     aai_wf_parser = subparsers.add_parser('aai_wf',
@@ -152,6 +192,7 @@ if __name__ == '__main__':
     aai_wf_parser.add_argument('--force_table', type=int, default=None, help="force use of specific translation table")
     aai_wf_parser.add_argument('--tmpdir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
     aai_wf_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    aai_wf_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # calculate amino acid usage
     aa_usage_parser = subparsers.add_parser('aa_usage',
@@ -161,6 +202,7 @@ if __name__ == '__main__':
     aa_usage_parser.add_argument('output_file', help="file indicating genes amino acid usage for each genome")
     aa_usage_parser.add_argument('-x', '--protein_ext', default='genes.faa', help="extension of amino acid gene files (other files in directory are ignored)")
     aa_usage_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    aa_usage_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # calculate codon usage
     codon_parser = subparsers.add_parser('codon_usage',
@@ -171,6 +213,7 @@ if __name__ == '__main__':
     codon_parser.add_argument('--gene_ext', default='fna', help="extension of gene files (other files in directory are ignored)")
     codon_parser.add_argument('--keep_ambiguous', action='store_true', help="keep codons with ambiguous bases")
     codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    codon_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # calculate kmer usage
     kmer_parser = subparsers.add_parser('kmer_usage',
@@ -181,6 +224,7 @@ if __name__ == '__main__':
     kmer_parser.add_argument('-k', type=int, default=4, help="length of kmers, e.g., 4 -> tetranucleotides")
     kmer_parser.add_argument('-x', '--genome_ext', default='fna', help="extension of genomes (other files in directory are ignored)")
     kmer_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    kmer_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # calculate stop codon usage
     stop_codon_parser = subparsers.add_parser('stop_usage',
@@ -190,6 +234,7 @@ if __name__ == '__main__':
     stop_codon_parser.add_argument('output_file', help="output file indicating stop codon usage of each genome")
     stop_codon_parser.add_argument('-x', '--gene_ext', default='genes.fna', help="extension of gene files (other files in directory are ignored)")
     stop_codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    stop_codon_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # identify LGT using dinucleotide (3rd, 1st) usage
     lgt_di_parser = subparsers.add_parser('lgt_di',
@@ -200,6 +245,7 @@ if __name__ == '__main__':
     lgt_di_parser.add_argument('--gene_ext', default='fna', help="extension of gene files (other files in directory are ignored)")
     lgt_di_parser.add_argument('--crit_value', type=float, default=0.001, help="critical value for defining deviant genes")
     lgt_di_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    lgt_di_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # identify LGT using codon usage
     lgt_codon_parser = subparsers.add_parser('lgt_codon',
@@ -209,6 +255,7 @@ if __name__ == '__main__':
     lgt_codon_parser.add_argument('output_dir', help="output directory to write dinucleotide usage for each gene in each genome")
     lgt_codon_parser.add_argument('-x', '--gene_ext', default='fna', help="extension of gene files (other files in directory are ignored)")
     lgt_codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    lgt_codon_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # unique
     unique_parser = subparsers.add_parser('unique',
@@ -219,7 +266,8 @@ if __name__ == '__main__':
     unique_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
     unique_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining orthology")
     unique_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining othology")
-
+    unique_parser.add_argument('--silent', help="suppress output", action='store_true')
+    
     # produce PCoA plot
     pcoa_plot_parser = subparsers.add_parser('pcoa_plot',
                                         formatter_class=CustomHelpFormatter,
@@ -231,6 +279,7 @@ if __name__ == '__main__':
     pcoa_plot_parser.add_argument('--image_type', default='png', choices=['eps', 'pdf', 'png', 'ps', 'svg'], help='desired image type')
     pcoa_plot_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
     pcoa_plot_parser.add_argument('--font_size', type=int, default=8, help='Desired font size')
+    pcoa_plot_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # produce a heatmap
     heatmap_parser = subparsers.add_parser('heatmap',
@@ -243,7 +292,8 @@ if __name__ == '__main__':
     # heatmap_parser.add_argument('--image_type', default='png', choices=['eps', 'pdf', 'png', 'ps', 'svg'], help='desired image type')
     # heatmap_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
     heatmap_parser.add_argument('--hierarchical_cluster', action='store_true', default=False, dest='cluster', help='perform hierarchical clustering on the values')
-
+    heatmap_parser.add_argument('--silent', help="suppress output", action='store_true')
+    
     # get and check options
     args = None
     if(len(sys.argv) == 1 or sys.argv[1] == '-h' or sys.argv == '--help'):
@@ -251,6 +301,11 @@ if __name__ == '__main__':
         sys.exit(0)
     else:
         args = parser.parse_args()
+       
+    try:
+        logger_setup(args.output_dir, args.silent)
+    except:
+        logger_setup(None, args.silent)
 
     # do what we came here to do
     try:

@@ -32,7 +32,6 @@ from comparem.PCoA import PCoA
 from comparem.plots.heatmap import Heatmap
 
 import biolib.seq_io as seq_io
-from biolib.misc.time_keeper import TimeKeeper
 from biolib.external.prodigal import Prodigal
 from biolib.common import (remove_extension,
                              make_sure_path_exists,
@@ -43,7 +42,6 @@ from biolib.common import (remove_extension,
 class OptionsParser():
     def __init__(self):
         self.logger = logging.getLogger()
-        self.time_keeper = TimeKeeper()
 
     def _genome_files(self, genome_dir, genome_ext):
         """Identify genomes files.
@@ -109,37 +107,24 @@ class OptionsParser():
 
     def ani(self, options):
         """ANI command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - ani] Calculating the ANI between genome pairs.')
-        self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
         make_sure_path_exists(options.output_dir)
 
         genome_files = self._genome_files(options.genome_dir, options.genome_ext)
 
-        self.logger.info('')
-        self.logger.info('  Average nucleotide identity information written to: %s' % options.output_dir)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Average nucleotide identity information written to: %s' % options.output_dir)
 
     def call_genes(self, options):
         """Call genes command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - call_genes] Identifying genes within genomes.')
-        self.logger.info('*******************************************************************************')
-
         make_sure_path_exists(options.output_dir)
 
         genome_files = self._genome_files(options.genome_dir, options.genome_ext)
         if not genome_files:
-            self.logger.warning('  [Warning] No genome files found. Check the --genome_ext flag used to identify genomes.')
+            self.logger.warning('No genome files found. Check the --genome_ext flag used to identify genomes.')
             sys.exit()
 
         prodigal = Prodigal(options.cpus)
-        summary_stats = prodigal.run(genome_files, options.proteins, options.force_table, False, options.output_dir)
+        summary_stats = prodigal.run(genome_files, options.output_dir, False, options.force_table, False)
 
         # write gene calling summary
         fout = open(os.path.join(options.output_dir, 'call_genes.summary.tsv'), 'w')
@@ -151,18 +136,10 @@ class OptionsParser():
                                                      stats.coding_density_11))
         fout.close()
 
-        self.logger.info('')
-        self.logger.info('  Identified genes written to: %s' % options.output_dir)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Identified genes written to: %s' % options.output_dir)
 
     def rblast(self, options):
         """Reciprocal blast command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - rblast] Performing reciprocal blast between genomes.')
-        self.logger.info('*******************************************************************************')
-
         check_dir_exists(options.protein_dir)
         make_sure_path_exists(options.output_dir)
 
@@ -172,34 +149,32 @@ class OptionsParser():
                 aa_gene_files.append(os.path.join(options.protein_dir, f))
 
         if not aa_gene_files:
-            self.logger.warning('  [Warning] No gene files found. Check the --protein_ext flag used to identify gene files.')
+            self.logger.warning('No gene files found. Check the --protein_ext flag used to identify gene files.')
             sys.exit()
 
         # modify gene ids to include genome ids in order to ensure
-        # all gene identifiers are unique across the set of genomes,
-        # also removes the trailing asterisk used to identify the stop
-        # codon
-        self.logger.info('')
-        self.logger.info('  Appending genome identifiers to all gene identifiers.')
-        gene_out_dir = os.path.join(options.output_dir, 'genes')
-        make_sure_path_exists(gene_out_dir)
+        # all gene identifiers are unique across the set of genomes
+        self.logger.info('Appending genome identifiers to all gene identifiers.')
         modified_aa_gene_files = []
         for gf in aa_gene_files:
-            genome_id = remove_extension(gf)
+            if options.genome_id_prefixed:
+                modified_aa_gene_files.append(gf)
+            else:
+                gene_out_dir = os.path.join(options.output_dir, 'genes')
+                make_sure_path_exists(gene_out_dir)
+                
+                genome_id = remove_extension(gf)
 
-            aa_file = os.path.join(gene_out_dir, genome_id + '.faa')
-            fout = open(aa_file, 'w')
-            for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
-                fout.write('>' + seq_id + '~' + genome_id + ' ' + annotation + '\n')
-                if seq[-1] == '*':
-                    seq = seq[0:-1]
-                fout.write(seq + '\n')
-            fout.close()
+                aa_file = os.path.join(gene_out_dir, genome_id + '.faa')
+                fout = open(aa_file, 'w')
+                for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
+                    fout.write('>' + genome_id + '~' +  seq_id + ' ' + annotation + '\n')
+                    fout.write(seq + '\n')
+                fout.close()
 
-            modified_aa_gene_files.append(aa_file)
+                modified_aa_gene_files.append(aa_file)
 
         # perform the reciprocal blast with blastp or diamond
-        self.logger.info('')
         if options.blastp:
             rblast = ReciprocalBlast(options.cpus)
             rblast.run(modified_aa_gene_files, options.evalue, options.output_dir)
@@ -207,56 +182,33 @@ class OptionsParser():
             # concatenate all blast tables to mimic output of diamond, all hits
             # for a given genome MUST be in consecutive order to fully mimic
             # the expected results from diamond
-            self.logger.info('')
-            self.logger.info('  Creating single file with all blast hits (be patient!).')
+            self.logger.info('Creating single file with all blast hits (be patient!).')
             blast_files = sorted([f for f in os.listdir(options.output_dir) if f.endswith('.blastp.tsv')])
             hit_tables = [os.path.join(options.output_dir, f) for f in blast_files]
             concatenate_files(hit_tables, os.path.join(options.output_dir, 'all_hits.tsv'))
         else:
             rdiamond = ReciprocalDiamond(options.cpus)
-            rdiamond.run(modified_aa_gene_files, options.evalue, options.per_identity, options.output_dir)
+            rdiamond.run(modified_aa_gene_files, 
+                            options.evalue, 
+                            options.per_identity, 
+                            options.per_aln_len, 
+                            options.output_dir)
 
-        self.logger.info('')
-        self.logger.info('  Reciprocal blast hits written to: %s' % options.output_dir)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Reciprocal blast hits written to: %s' % options.output_dir)
 
     def aai(self, options):
         """AAI command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - aai] Calculating the AAI between homologs in genome pairs.')
-        self.logger.info('*******************************************************************************')
-        self.logger.info('')
-
         check_dir_exists(options.rblast_dir)
         make_sure_path_exists(options.output_dir)
 
-        genome_ids = []
-        protein_dir = os.path.join(options.rblast_dir, 'genes')
-        for f in os.listdir(protein_dir):
-            if f.endswith('.faa'):
-                genome_id = remove_extension(f, '.faa')
-                genome_ids.append(genome_id)
-
-        if not genome_ids:
-            self.logger.warning('  [Warning] No gene files found. Check the --protein_ext flag used to identify gene files.')
-            sys.exit()
-
         aai_calculator = AAICalculator(options.cpus)
-        aai_calculator.run(genome_ids,
-                            protein_dir,
-                            options.rblast_dir,
+        aai_calculator.run(options.rblast_dir,
                             options.per_identity,
                             options.per_aln_len,
-                            options.write_shared_genes,
                             options.output_dir)
 
         shared_genes_dir = os.path.join(options.output_dir, aai_calculator.shared_genes)
-        self.logger.info('')
-        self.logger.info('  Identified homologs between genome pairs written to: %s' % shared_genes_dir)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Identified homologs between genome pairs written to: %s' % shared_genes_dir)
 
     def aa_usage(self, options):
         """Amino acid usage command"""

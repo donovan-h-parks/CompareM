@@ -22,5 +22,5 @@ setup(
     long_description=open('README.md').read(),
     install_requires=[
         "numpy >= 1.8.0",
-        "biolib >= 0.0.8"],
+        "biolib >= 0.0.17"],
 )

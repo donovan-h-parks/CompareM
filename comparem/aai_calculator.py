@@ -24,6 +24,7 @@ __email__ = 'donovan.parks@gmail.com'
 
 import os
 import logging
+from collections import defaultdict
 
 from numpy import mean, std
 
@@ -57,6 +58,7 @@ class AAICalculator(object):
 
         self.shared_genes = 'shared_genes'
         self.blast_table_file = 'all_hits.tsv'
+        self.gene_file = 'all_genes.faa'
 
     def _genome_offsets(self, blast_table):
         """Read blast table to determine byte offsets of hits for each genome.
@@ -79,8 +81,7 @@ class AAICalculator(object):
             end_pos = 0
             for hit in f:
                 query = hit[0:hit.find('\t')]
-                genome_id_start = query.rfind('~')
-                query_genome = query[genome_id_start + 1:]
+                query_genome = query[0:query.find('~')]
 
                 if query_genome != cur_query_genome:
                     if cur_query_genome:
@@ -138,14 +139,14 @@ class AAICalculator(object):
                 continue
 
             query_id = hit[0]
-            aln_len = int(hit[3])
-            per_aln_len = aln_len * 100.0 / self.gene_lengths[query_id]
+            query_coverage = int(hit[7]) - int(hit[6])
+            per_aln_len = query_coverage * 100.0 / self.gene_lengths[query_id]
+            
             if per_aln_len < per_aln_len_threshold:
                 continue
 
             subject_id = hit[1]
-            subject_id_index = subject_id.rfind('~')
-            subject_genome = subject_id[subject_id_index + 1:]
+            subject_genome = subject_id[0:subject_id.find('~')]
             if subject_genome != subject_genome_id:
                 continue
 
@@ -161,25 +162,21 @@ class AAICalculator(object):
 
         return hits
 
-    def _producer(self, genome_pair):
+    def _producer(self, genome_info_pairs):
         """Identify reciprocal best blast hits between pairs of genomes.
 
         Parameters
         ----------
-        genome_pair : list
+        genome_info_pairs : ((genome_idA, # genes), (genome_idB, # genes))
             Identifier of genomes to process.
         """
 
         blast_stream = open(self.blast_table, 'rb', 32 * (10 ** 6))
 
-        genome_fileA, genome_fileB = genome_pair
-
-        # count number of genes in each genome
-        genes_in_genomeA = seq_io.read_fasta(genome_fileA)
-        genes_in_genomeB = seq_io.read_fasta(genome_fileB)
-
-        genome_idA = remove_extension(genome_fileA)
-        genome_idB = remove_extension(genome_fileB)
+        # get genome ID and number of genes in genomes to process
+        genome_infoA, genome_infoB = genome_info_pairs
+        genome_idA, genes_in_genomeA = genome_infoA
+        genome_idB, genes_in_genomeB = genome_infoB
 
         # find blast hits between genome A and B, and vice versa
         hitsAB = self._valid_hits(blast_stream, self.offset_table,
@@ -190,9 +187,6 @@ class AAICalculator(object):
                                     genome_idB, genome_idA)
 
         # report reciprocal best blast hits
-        if self.write_shared_genes:
-            fout_seqs = open(os.path.join(self.shared_genes_dir, genome_idA + '-' + genome_idB + '.shared_genes.faa'), 'w')
-
         fout_stats = open(os.path.join(self.shared_genes_dir, genome_idA + '-' + genome_idB + '.rbb_hits.tsv'), 'w')
         fout_stats.write(genome_idA + '\t' + genome_idB + '\tPercent Identity\tPercent Alignment Length\te-value\tbitscore\n')
 
@@ -213,16 +207,6 @@ class AAICalculator(object):
 
                 fout_stats.write('%s\t%s\t%.2f\t%.2f\t%.2g\t%.2f\n' % (query_id, subject_id, per_ident, per_aln_len, evalue, bitscore))
 
-                # write out shared genes
-                if self.write_shared_genes:
-                    fout_seqs.write('>' + query_id + '\n')
-                    fout_seqs.write(genes_in_genomeA[query_id] + '\n')
-
-                    fout_seqs.write('>' + subject_id + '\n')
-                    fout_seqs.write(genes_in_genomeB[subject_id] + '\n')
-
-        if self.write_shared_genes:
-            fout_seqs.close()
         fout_stats.close()
 
         mean_per_identity_hits = 0
@@ -234,9 +218,9 @@ class AAICalculator(object):
             std_per_identity_hits = std(per_identity_hits)
 
         return (genome_idA,
-                    len(genes_in_genomeA),
+                    genes_in_genomeA,
                     genome_idB,
-                    len(genes_in_genomeB),
+                    genes_in_genomeB,
                     len(per_identity_hits),
                     mean_per_identity_hits,
                     std_per_identity_hits)
@@ -283,69 +267,68 @@ class AAICalculator(object):
 
         return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
-    def run(self, genome_ids, gene_dir, blast_dir, per_iden_threshold, per_aln_len_threshold, write_shared_genes, output_dir):
+    def run(self, blast_dir, per_iden_threshold, per_aln_len_threshold, output_dir):
         """Calculate amino acid identity (AAI) between pairs of genomes.
 
         Parameters
         ----------
-        genome_ids : list of str
-            Unique ids of genomes to process.
-        gene_dir : str
-            Directory with amino acid genes in fasta format.
         blast_dir : str
             Directory with reciprocal blast between genome pairs.
         per_identity_threshold : float
             Percent identity threshold used to define a homologous gene.
         per_aln_len_threshold : float
             Alignment length threshold used to define a homologous gene.
-        write_shared_genes : boolean
-            Flag indicating if shared genes should be written to file.
         output_dir : str
             Directory to store AAI results.
         """
 
-        self.gene_dir = gene_dir
         self.blast_dir = blast_dir
 
         self.per_identity_threshold = per_iden_threshold
         self.per_aln_len_threshold = per_aln_len_threshold
-        self.write_shared_genes = write_shared_genes
         self.output_dir = output_dir
 
         shared_genes_dir = os.path.join(output_dir, self.shared_genes)
         make_sure_path_exists(shared_genes_dir)
         self.shared_genes_dir = shared_genes_dir
 
-        # calculate length of genes in each genome
-        self.logger.info('  Calculating length of genes in each genome.')
-        self.gene_lengths = {}
-        gene_files = []
-        for gene_file in os.listdir(gene_dir):
-            gene_file = os.path.join(gene_dir, gene_file)
-            gene_files.append(gene_file)
-            self.gene_lengths.update(seq_io.seq_lengths(gene_file))
+        # calculate length of genes and number of genes each genome
+        self.logger.info('Calculating length of genes.')
+        self.gene_lengths  = {}
+        genes_in_genomes = defaultdict(int)
+        for seq_id, seq in seq_io.read_fasta_seq(os.path.join(self.blast_dir, self.gene_file)):
+            if seq[-1] == '*':
+                self.gene_lengths[seq_id] = len(seq) - 1
+            else:
+                self.gene_lengths[seq_id] = len(seq)
+                
+            genome_id = seq_id[0:seq_id.find('~')]
+            genes_in_genomes[genome_id] += 1
 
         # get byte offset of hits from each genome
-        self.logger.info('')
-        self.logger.info('  Indexing blast hits.')
+        self.logger.info('Indexing blast hits.')
         self.blast_table = os.path.join(self.blast_dir, self.blast_table_file)
         self.offset_table = self._genome_offsets(self.blast_table)
 
         # calculate AAI between each pair of genomes in parallel
-        self.logger.info('')
-        self.logger.info('  Calculating amino acid identity between all pairs of genomes:')
+        self.logger.info('Calculating amino acid identity between all pairs of genomes:')
 
-        genome_pairs = []
-        for i in xrange(0, len(gene_files)):
-            for j in xrange(i + 1, len(gene_files)):
-                genome_pairs.append((gene_files[i], gene_files[j]))
+        genome_info_pairs = []
+        genome_ids = genes_in_genomes.keys()
+        for i in xrange(0, len(genome_ids)):
+            genome_idI = genome_ids[i]
+            genome_infoI = (genome_idI, genes_in_genomes[genome_idI])
+            for j in xrange(i + 1, len(genome_ids)):
+                genome_idJ = genome_ids[j]
+                genome_infoJ = (genome_idJ, genes_in_genomes[genome_idJ])
+                genome_info_pairs.append((genome_infoI, genome_infoJ))
 
-        if len(genome_pairs) == 0:
-            self.logger.warning('  [Warning] No genome pairs identified.')
+        if len(genome_info_pairs) == 0:
+            self.logger.warning('No genome pairs identified.')
             return
 
         parallel = Parallel(self.cpus)
-        consumer_data = parallel.run(self._producer, self._consumer, genome_pairs, self._progress)
+        consumer_data = parallel.run(self._producer, self._consumer, genome_info_pairs, self._progress)
 
         # write results for each genome pair
         aai_summay_file = os.path.join(output_dir, 'aai_summary.tsv')
@@ -357,5 +340,4 @@ class AAICalculator(object):
 
         fout.close()
 
-        self.logger.info('')
-        self.logger.info('  Summary of AAI between genomes: %s' % aai_summay_file)
+        self.logger.info('Summary of AAI between genomes: %s' % aai_summay_file)
