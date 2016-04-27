@@ -48,7 +48,7 @@ class KmerUsage(object):
         cpus : int
             Number of cpus to use.
         """
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('timestamp')
 
         self.k = k
         self.cpus = cpus

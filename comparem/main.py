@@ -41,7 +41,7 @@ from biolib.common import (remove_extension,
 
 class OptionsParser():
     def __init__(self):
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('timestamp')
 
     def _genome_files(self, genome_dir, genome_ext):
         """Identify genomes files.
@@ -67,7 +67,7 @@ class OptionsParser():
                 genome_files.append(os.path.join(genome_dir, f))
 
         if not genome_files:
-            self.logger.warning('  [Warning] No genomes found. Check the --genome_ext flag used to identify genomes.')
+            self.logger.warning('No genomes found. Check the --genome_ext flag used to identify genomes.')
             sys.exit()
 
         return genome_files
@@ -157,7 +157,7 @@ class OptionsParser():
         self.logger.info('Appending genome identifiers to all gene identifiers.')
         modified_aa_gene_files = []
         for gf in aa_gene_files:
-            if options.genome_id_prefixed:
+            if options.keep_headers:
                 modified_aa_gene_files.append(gf)
             else:
                 gene_out_dir = os.path.join(options.output_dir, 'genes')
@@ -168,7 +168,7 @@ class OptionsParser():
                 aa_file = os.path.join(gene_out_dir, genome_id + '.faa')
                 fout = open(aa_file, 'w')
                 for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
-                    fout.write('>' + genome_id + '~' +  seq_id + ' ' + annotation + '\n')
+                    fout.write('>' + seq_id + '~' +  genome_id + ' ' + annotation + '\n')
                     fout.write(seq + '\n')
                 fout.close()
 

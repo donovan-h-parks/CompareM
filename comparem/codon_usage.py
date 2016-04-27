@@ -48,7 +48,7 @@ class CodonUsage(object):
         stop_codon_only: boolean
             Only calculate usage at the last/stop codon position.
         """
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('timestamp')
 
         self.cpus = cpus
         self.keep_ambiguous = keep_ambiguous

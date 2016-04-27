@@ -19,6 +19,7 @@
 #                                                                             #
 ###############################################################################
 
+import logging
 from collections import defaultdict
 
 import numpy as np
@@ -36,7 +37,7 @@ class PCoA:
 
     def __init__(self):
         """Initialization."""
-        pass
+        self.logger = logging.getLogger('timestamp')
 
     def plot(self, aai_summary_file):
         # create matrix from pairwise comparisons

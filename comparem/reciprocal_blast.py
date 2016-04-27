@@ -37,11 +37,6 @@ To do:
  -- this should be renamed to indicate it performs reciprocal blast and
     generalized to allow it to be placed in biolib
  - blast genome against itself to find duplicate genes.
- - consider moving over to using 'diamond blastp'
- -- need to compare blastp vs. diamond in terms of speed and results
- -- diamond is not recommended for small datasets so it may not be ideal here
- -- also it isn't as sensitive
- -- also need to work out parsing of diamond results (no seq length info)
 *****************************************************************************
 """
 
@@ -57,7 +52,7 @@ class ReciprocalBlast(object):
         cpus : int
             Number of cpus to use.
         """
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('timestamp')
 
         self._check_for_blast()
 

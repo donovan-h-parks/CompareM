@@ -43,7 +43,7 @@ class AminoAcidUsage(object):
             Number of cpus to use.
         """
 
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('timestamp')
 
         self.cpus = cpus
 

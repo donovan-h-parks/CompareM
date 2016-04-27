@@ -52,7 +52,7 @@ class AAICalculator(object):
         cpus : int
             Number of cpus to use.
         """
-        self.logger = logging.getLogger()
+        self.logger = logging.getLogger('timestamp')
 
         self.cpus = cpus
 
@@ -81,7 +81,7 @@ class AAICalculator(object):
             end_pos = 0
             for hit in f:
                 query = hit[0:hit.find('\t')]
-                query_genome = query[0:query.find('~')]
+                query_genome = query[query.rfind('~') + 1:]
 
                 if query_genome != cur_query_genome:
                     if cur_query_genome:
@@ -146,7 +146,7 @@ class AAICalculator(object):
                 continue
 
             subject_id = hit[1]
-            subject_genome = subject_id[0:subject_id.find('~')]
+            subject_genome = subject_id[subject_id.rfind('~') + 1:]
             if subject_genome != subject_genome_id:
                 continue
 

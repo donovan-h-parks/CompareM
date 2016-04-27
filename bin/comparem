@@ -127,7 +127,7 @@ if __name__ == '__main__':
     rblast_parser.add_argument('-a', '--per_aln_len', type=float, default=50.0, help="minimum percent coverage of query sequence for reporting an alignment")
     rblast_parser.add_argument('-x', '--protein_ext', default='faa', help="extension of amino acid gene files (other files in directory are ignored)")
     rblast_parser.add_argument('--blastp', action="store_true", default=False, help="use blastp instead of diamond")
-    rblast_parser.add_argument('--genome_id_prefixed', action="store_true", default=False, help="indicates gene IDs already have the format <genome_id>~<gene_id>")
+    rblast_parser.add_argument('--keep_headers', action="store_true", default=False, help="indicates FASTA headers already have the format <gene_id>~<genome_id>")
     rblast_parser.add_argument('--tmpdir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
     rblast_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
     rblast_parser.add_argument('--silent', help="suppress output", action='store_true')
