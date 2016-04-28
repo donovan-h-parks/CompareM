@@ -302,7 +302,7 @@ class AAICalculator(object):
             else:
                 self.gene_lengths[seq_id] = len(seq)
                 
-            genome_id = seq_id[0:seq_id.find('~')]
+            genome_id = seq_id[seq_id.find('~')+1:]
             genes_in_genomes[genome_id] += 1
 
         # get byte offset of hits from each genome
@@ -311,7 +311,9 @@ class AAICalculator(object):
         self.offset_table = self._genome_offsets(self.blast_table)
 
         # calculate AAI between each pair of genomes in parallel
-        self.logger.info('Calculating amino acid identity between all pairs of genomes:')
+        ng = len(genes_in_genomes)
+        num_pairs = (ng*ng - ng) / 2
+        self.logger.info('Calculating amino acid identity between all %d pairs of genomes:' % num_pairs)
 
         genome_info_pairs = []
         genome_ids = genes_in_genomes.keys()

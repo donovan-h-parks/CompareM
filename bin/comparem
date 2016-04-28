@@ -156,7 +156,7 @@ if __name__ == '__main__':
     aai_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
     aai_wf_parser.add_argument('-x', '--genome_ext', default='fna', help="extension of genomes (other files in directory are ignored)")
     aai_wf_parser.add_argument('--blastp', action="store_true", default=False, help="use blastp instead of diamond")
-    aai_wf_parser.add_argument('--genome_id_prefixed', action="store_true", default=False, help="indicates gene IDs already have the format <genome_id>~<gene_id>")
+    aai_wf_parser.add_argument('--keep_headers', action="store_true", default=False, help="indicates FASTA headers already have the format <gene_id>~<genome_id>")
     aai_wf_parser.add_argument('--force_table', type=int, default=None, help="force use of specific translation table")
     aai_wf_parser.add_argument('--tmpdir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
     aai_wf_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
