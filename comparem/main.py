@@ -168,7 +168,7 @@ class OptionsParser():
                 aa_file = os.path.join(gene_out_dir, genome_id + '.faa')
                 fout = open(aa_file, 'w')
                 for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
-                    fout.write('>' + seq_id + '~' +  genome_id + ' ' + annotation + '\n')
+                    fout.write('>' + genome_id + '~' + seq_id  + ' ' + annotation + '\n')
                     fout.write(seq + '\n')
                 fout.close()
 
@@ -191,7 +191,8 @@ class OptionsParser():
             rdiamond.run(modified_aa_gene_files, 
                             options.evalue, 
                             options.per_identity, 
-                            options.per_aln_len, 
+                            options.per_aln_len,
+                            options.tmp_dir,
                             options.output_dir)
 
         self.logger.info('Reciprocal blast hits written to: %s' % options.output_dir)
@@ -203,6 +204,7 @@ class OptionsParser():
 
         aai_calculator = AAICalculator(options.cpus)
         aai_calculator.run(options.rblast_dir,
+                            options.evalue,
                             options.per_identity,
                             options.per_aln_len,
                             options.output_dir)
@@ -475,14 +477,14 @@ class OptionsParser():
             root_dir = options.output_dir
             make_sure_path_exists(root_dir)
 
-	    if options.proteins:
-		options.protein_dir = options.genome_dir
-		options.protein_ext = options.genome_ext
-	    else:
-            	options.output_dir = os.path.join(root_dir, 'genes')
-            	self.call_genes(options)
-	        options.protein_dir = os.path.join(root_dir, 'genes')
-            	options.protein_ext = 'faa'
+            if options.proteins:
+                options.protein_dir = options.genome_dir
+                options.protein_ext = options.genome_ext
+            else:
+                options.output_dir = os.path.join(root_dir, 'genes')
+                self.call_genes(options)
+                options.protein_dir = os.path.join(root_dir, 'genes')
+                options.protein_ext = 'faa'
 
             options.output_dir = os.path.join(root_dir, 'rblast')
             self.rblast(options)

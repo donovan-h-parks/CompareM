@@ -53,7 +53,7 @@ class ReciprocalDiamond(object):
 
         self.cpus = cpus
 
-    def run(self, aa_gene_files, evalue, per_identity, per_aln_len, output_dir):
+    def run(self, aa_gene_files, evalue, per_identity, per_aln_len, tmp_dir, output_dir):
         """Apply reciprocal blast to all pairs of genomes in parallel.
 
         Parameters
@@ -66,6 +66,8 @@ class ReciprocalDiamond(object):
             Percent identity threshold for reporting hits.
         per_aln_len : float
             Percent query coverage threshold for reporting hits.
+        tmp_dir : str
+            Directory to store temporary files.
         output_dir : str
             Directory to store blast results.
         """
@@ -82,9 +84,24 @@ class ReciprocalDiamond(object):
         # blast all genes against the database
         self.logger.info('Identifying hits between all pairs of genomes (be patient!).')
         hits_daa_file = os.path.join(output_dir, 'all_hits')
-        diamond.blastp(gene_file, diamond_db, evalue, per_identity, per_aln_len, len(aa_gene_files) * 10, hits_daa_file)
+        diamond.blastp(gene_file, diamond_db, evalue, per_identity, per_aln_len, len(aa_gene_files) * 10, hits_daa_file, tmp_dir)
 
         # create flat hits table
+        if tmp_dir:
+            tmp_hits_table = tempfile.NamedTemporaryFile(prefix='diamond_hits_', dir=tmp_dir, delete=False)
+        else:
+            if os.path.isdir('/dev/shm'):
+                tmp_hits_table = tempfile.NamedTemporaryFile(prefix='diamond_hits_', dir='/dev/shm', delete=False)
+            else:
+                tmp_hits_table = tempfile.NamedTemporaryFile(prefix='diamond_hits_', delete=False)
+        tmp_hits_table.close()
+                
         self.logger.info('Creating table with hits.')
-        hits_table_file = os.path.join(output_dir, 'all_hits.tsv')
-        diamond.view(hits_daa_file + '.daa', hits_table_file)
+        diamond.view(hits_daa_file + '.daa', tmp_hits_table.name)
+        
+        # sort hit table
+        self.logger.info('Sorting table with hits.')
+        hits_table_file = os.path.join(output_dir, 'all_hits_sorted.tsv')
+        os.system("LC_ALL=C sed -i 's/~/\t/g' %s" % tmp_hits_table.name)
+        os.system("LC_ALL=C sort --parallel=8 -o %s -k1,1 -k3,3 %s" % (tmp_hits_table.name, tmp_hits_table.name))
+        os.system('mv %s %s' % (tmp_hits_table.name, hits_table_file))

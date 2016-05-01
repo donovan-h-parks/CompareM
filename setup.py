@@ -1,7 +1,7 @@
 from distutils.core import setup
+from Cython.Build import cythonize
 
 import os
-
 
 def version():
     setupDir = os.path.dirname(os.path.realpath(__file__))
@@ -16,6 +16,7 @@ setup(
     packages=['comparem', 'comparem.plots'],
     scripts=['bin/comparem'],
     package_data={'comparem': ['VERSION']},
+    ext_modules = cythonize("./comparem/aai_calculator.pyx"),
     url='http://pypi.python.org/pypi/comparem/',
     license='GPL3',
     description='A toolbox for comparative genomics.',
