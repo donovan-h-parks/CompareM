@@ -2,7 +2,8 @@
 
 <b>[This project is in active development, you are welcomed to use this software though it may be unstable.]</b>
 
-[![PyPI version](https://badge.fury.io/py/comparem.svg)](https://badge.fury.io/py/comparem)
+[![version status](https://img.shields.io/pypi/v/comparem.svg)](https://pypi.python.org/pypi/comparem)
+[![downloads](https://img.shields.io/pypi/dm/comparem.svg)](https://pypi.python.org/pypi/comparem)
 
 CompareM is a comparative genomics toolbox. It provides statistics across groups of genomes (e.g., amino acid identity; core, dispensible, and unique gene sets) and for individual genomes (e.g., GC content, coding density, codon usage). Emphasis has been placed on providing parallelized implementations in order to allow scalability to thousands of genomes. The functionality currently planned is:
 
