@@ -177,7 +177,7 @@ class CodonUsage(object):
             String indicating progress of data processing.
         """
 
-        return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
+        return '  Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
     def run(self, gene_files):
         """Calculate codon usage over a set of genomes.
@@ -197,9 +197,13 @@ class CodonUsage(object):
             Mean length of genes for each stop codon.
         """
 
-        self.logger.info('  Calculating codon usage for each genome.')
+        self.logger.info('Calculating codon usage for each genome.')
+        
+        progress_func = self._progress
+        if self.logger.is_silent:
+            progress_func = None
 
         parallel = Parallel(self.cpus)
-        consumer_data = parallel.run(self._producer, self._consumer, gene_files, self._progress)
+        consumer_data = parallel.run(self._producer, self._consumer, gene_files, progress_func)
 
         return consumer_data.genome_codon_usage, consumer_data.codon_set, consumer_data.mean_gene_length

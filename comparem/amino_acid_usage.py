@@ -141,7 +141,7 @@ class AminoAcidUsage(object):
             String indicating progress of data processing.
         """
 
-        return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
+        return '  Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
     def run(self, gene_files):
         """Calculate amino acid usage over a set of genomes.
@@ -159,9 +159,13 @@ class AminoAcidUsage(object):
            Set with all identified amino acids.
         """
 
-        self.logger.info('  Calculating amino acid usage for each genome:')
+        self.logger.info('Calculating amino acid usage for each genome:')
+        
+        progress_func = self._progress
+        if self.logger.is_silent:
+            progress_func = None
 
         parallel = Parallel(self.cpus)
-        consumer_data = parallel.run(self._producer, self._consumer, gene_files, self._progress)
+        consumer_data = parallel.run(self._producer, self._consumer, gene_files, progress_func)
 
         return consumer_data.genome_aa_usage, consumer_data.aa_set

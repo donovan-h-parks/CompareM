@@ -20,59 +20,73 @@ import sys
 import logging
 from collections import defaultdict
 
-from comparem.reciprocal_blast import ReciprocalBlast
-from comparem.reciprocal_diamond import ReciprocalDiamond
+from comparem.similarity_search import SimilaritySearch
 from comparem.aai_calculator import AAICalculator
+from comparem.classify import Classify
 from comparem.codon_usage import CodonUsage
 from comparem.amino_acid_usage import AminoAcidUsage
 from comparem.kmer_usage import KmerUsage
 from comparem.lgt_dinucleotide import LgtDinucleotide
 from comparem.lgt_codon import LgtCodon
-from comparem.PCoA import PCoA
-from comparem.plots.heatmap import Heatmap
+from comparem.hierarchical_clustering import HierarchicalCluster
+#from comparem.PCoA import PCoA
+#from comparem.plots.heatmap import Heatmap
 
 import biolib.seq_io as seq_io
 from biolib.external.prodigal import Prodigal
 from biolib.common import (remove_extension,
                              make_sure_path_exists,
                              check_dir_exists,
+                             check_file_exists,
                              concatenate_files)
+                             
+from scipy.spatial.distance import (pdist as scipy_pdist,
+                                    squareform as scipy_squareform)
 
 
 class OptionsParser():
     def __init__(self):
         self.logger = logging.getLogger('timestamp')
 
-    def _genome_files(self, genome_dir, genome_ext):
+    def _input_files(self, input, file_ext):
         """Identify genomes files.
 
         Parameters
-        ----------
-        genome_dir : str
-            Directory containing genomes of interest.
-        genome_ext : str
-            Extension of genome files.
+        input : str
+            File or directory specifying input files to process.
+        file_ext : str
+            Extension of files to process.
 
         Returns
         -------
         list
-            Name of genome files in directory.
+            Name of files to process.
         """
-
-        check_dir_exists(genome_dir)
-
-        genome_files = []
-        for f in os.listdir(genome_dir):
-            if f.endswith(genome_ext):
-                genome_files.append(os.path.join(genome_dir, f))
-
-        if not genome_files:
-            self.logger.warning('No genomes found. Check the --genome_ext flag used to identify genomes.')
+        
+        input_files = []
+        if os.path.isfile(input):
+            for line in  open(input):
+                input_file = line.strip().split('\t')[0]
+                input_files.append(input_file)
+                
+            if not input_files:
+                self.logger.warning('No genomes found in file: %s. Check that the file has the correct format.' % input)
+                sys.exit()
+        elif os.path.isdir(input):
+            for f in os.listdir(input):
+                if f.endswith(file_ext):
+                    input_files.append(os.path.join(input, f))
+                    
+            if not input_files:
+                self.logger.warning('No genomes found in directory: %s. Check the --file_ext flag used to identify genomes.' % input)
+                sys.exit()
+        else:
+            self.logger.error('Specified input file or directory does not exists: %s' % input)
             sys.exit()
 
-        return genome_files
+        return input_files
 
-    def _write_usage_profile(self, genome_usage, feature_set, output_file):
+    def _write_usage_profile(self, genome_usage, feature_set, counts, output_file):
         """Write out occurrence of specified features for each genome.
 
         Parameters
@@ -81,6 +95,8 @@ class OptionsParser():
             Occurrence of genomic feature in genome
         feature_set : iterable
             All genomic features.
+        counts : boolean
+            Write raw counts if True, else write frequencies.
         output_file : str
             File to produce.
         """
@@ -102,7 +118,10 @@ class OptionsParser():
             fout.write(genome_id)
 
             for feature in sorted_feature_set:
-                fout.write('\t%.2f%%' % (features.get(feature, 0) * 100.0 / totals[genome_id]))
+                if counts:
+                    fout.write('\t%d' % features.get(feature, 0))
+                else:
+                    fout.write('\t%f' % (features.get(feature, 0) * 100.0 / totals[genome_id]))
             fout.write('\n')
 
     def ani(self, options):
@@ -110,20 +129,18 @@ class OptionsParser():
 
         make_sure_path_exists(options.output_dir)
 
-        genome_files = self._genome_files(options.genome_dir, options.genome_ext)
+        genome_files = self._genome_files(options.genome_dir, options.file_ext)
 
         self.logger.info('Average nucleotide identity information written to: %s' % options.output_dir)
 
     def call_genes(self, options):
         """Call genes command"""
+        
         make_sure_path_exists(options.output_dir)
+        
+        genome_files = self._input_files(options.input_genomes, options.file_ext)
 
-        genome_files = self._genome_files(options.genome_dir, options.genome_ext)
-        if not genome_files:
-            self.logger.warning('No genome files found. Check the --genome_ext flag used to identify genomes.')
-            sys.exit()
-
-        prodigal = Prodigal(options.cpus)
+        prodigal = Prodigal(options.cpus, not options.silent)
         summary_stats = prodigal.run(genome_files, options.output_dir, False, options.force_table, False)
 
         # write gene calling summary
@@ -138,236 +155,151 @@ class OptionsParser():
 
         self.logger.info('Identified genes written to: %s' % options.output_dir)
 
-    def rblast(self, options):
-        """Reciprocal blast command"""
-        check_dir_exists(options.protein_dir)
+    def similarity(self, options):
+        """Perform sequence similarity search between genes"""
+
         make_sure_path_exists(options.output_dir)
+        
+        query_gene_files = self._input_files(options.query_proteins, options.file_ext)
+        target_gene_files = self._input_files(options.target_protein, options.file_ext)
+        
+        ss = SimilaritySearch(options.cpus)
+        ss.run(query_gene_files, 
+                target_gene_files,
+                options.evalue, 
+                options.per_identity, 
+                options.per_aln_len,
+                options.high_mem,
+                options.tmp_dir,
+                options.blastp,
+                options.keep_headers,
+                options.output_dir)
 
-        aa_gene_files = []
-        for f in os.listdir(options.protein_dir):
-            if f.endswith(options.protein_ext):
-                aa_gene_files.append(os.path.join(options.protein_dir, f))
-
-        if not aa_gene_files:
-            self.logger.warning('No gene files found. Check the --protein_ext flag used to identify gene files.')
-            sys.exit()
-
-        # modify gene ids to include genome ids in order to ensure
-        # all gene identifiers are unique across the set of genomes
-        self.logger.info('Appending genome identifiers to all gene identifiers.')
-        modified_aa_gene_files = []
-        for gf in aa_gene_files:
-            if options.keep_headers:
-                modified_aa_gene_files.append(gf)
-            else:
-                gene_out_dir = os.path.join(options.output_dir, 'genes')
-                make_sure_path_exists(gene_out_dir)
-                
-                genome_id = remove_extension(gf)
-
-                aa_file = os.path.join(gene_out_dir, genome_id + '.faa')
-                fout = open(aa_file, 'w')
-                for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
-                    fout.write('>' + genome_id + '~' + seq_id  + ' ' + annotation + '\n')
-                    fout.write(seq + '\n')
-                fout.close()
-
-                modified_aa_gene_files.append(aa_file)
-
-        # perform the reciprocal blast with blastp or diamond
-        if options.blastp:
-            rblast = ReciprocalBlast(options.cpus)
-            rblast.run(modified_aa_gene_files, options.evalue, options.output_dir)
-
-            # concatenate all blast tables to mimic output of diamond, all hits
-            # for a given genome MUST be in consecutive order to fully mimic
-            # the expected results from diamond
-            self.logger.info('Creating single file with all blast hits (be patient!).')
-            blast_files = sorted([f for f in os.listdir(options.output_dir) if f.endswith('.blastp.tsv')])
-            hit_tables = [os.path.join(options.output_dir, f) for f in blast_files]
-            concatenate_files(hit_tables, os.path.join(options.output_dir, 'all_hits.tsv'))
-        else:
-            rdiamond = ReciprocalDiamond(options.cpus)
-            rdiamond.run(modified_aa_gene_files, 
-                            options.evalue, 
-                            options.per_identity, 
-                            options.per_aln_len,
-                            options.tmp_dir,
-                            options.output_dir)
-
-        self.logger.info('Reciprocal blast hits written to: %s' % options.output_dir)
-
+        self.logger.info('Sequence similarity results written to: %s' % options.output_dir)
+        
     def aai(self, options):
         """AAI command"""
-        check_dir_exists(options.rblast_dir)
+        check_file_exists(options.sorted_hit_table)
         make_sure_path_exists(options.output_dir)
 
         aai_calculator = AAICalculator(options.cpus)
-        aai_calculator.run(options.rblast_dir,
-                            options.evalue,
-                            options.per_identity,
-                            options.per_aln_len,
-                            options.output_dir)
+        aai_output_file, rbh_output_file = aai_calculator.run(options.query_gene_file,
+                                                                None,
+                                                                options.sorted_hit_table,
+                                                                options.evalue,
+                                                                options.per_identity,
+                                                                options.per_aln_len,
+                                                                options.keep_rbhs,
+                                                                options.output_dir)
 
-        shared_genes_dir = os.path.join(options.output_dir, aai_calculator.shared_genes)
-        self.logger.info('Identified homologs between genome pairs written to: %s' % shared_genes_dir)
+        if rbh_output_file:
+            self.logger.info('Identified reciprocal best hits written to: %s' % rbh_output_file)
+            
+        self.logger.info('AAI between genomes written to: %s' % aai_output_file)
+        
+    def classify(self, options):
+        """Classify genomes based on AAI values."""
+        check_file_exists(options.sorted_hit_table)
+        make_sure_path_exists(options.output_dir)
+        
+        classify = Classify(options.cpus)
+        results_file = classify.run(options.query_gene_file,
+                                        options.target_gene_file,
+                                        options.sorted_hit_table,
+                                        options.evalue,
+                                        options.per_identity,
+                                        options.per_aln_len,
+                                        options.num_top_targets,
+                                        options.keep_rbhs,
+                                        options.output_dir)
+        
+        self.logger.info('Classification results written to: %s' % results_file)
 
     def aa_usage(self, options):
         """Amino acid usage command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - aa_usage] Calculating amino acid usage within each genome.')
-        self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
-        check_dir_exists(options.protein_dir)
-
-        # get list of files with called genes
-        gene_files = []
-        files = os.listdir(options.protein_dir)
-        for f in files:
-            if f.endswith(options.protein_ext):
-                gene_files.append(os.path.join(options.protein_dir, f))
-
-        # warn use if no files were found
-        if len(gene_files) == 0:
-            self.logger.warning('  [Warning] No gene files found. Check the --protein_ext flag used to identify gene files.')
-            return
+        gene_files = self._input_files(options.protein_gene_files, options.file_ext)
 
         # calculate amino acid usage
         amino_acid_usage = AminoAcidUsage(options.cpus)
         genome_aa_usage, aa_set = amino_acid_usage.run(gene_files)
 
         # write out results
-        self._write_usage_profile(genome_aa_usage, aa_set, options.output_file)
+        self._write_usage_profile(genome_aa_usage, aa_set, options.counts, options.output_file)
 
-        self.logger.info('')
-        self.logger.info('  Amino acid usage written to: %s' % options.output_file)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Amino acid usage written to: %s' % options.output_file)
 
     def codon_usage(self, options):
         """Codon usage command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - codon_usage] Calculating codon usage within each genome.')
-        self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
-        check_dir_exists(options.gene_dir)
-
-        # get list of files with called genes
-        gene_files = []
-        files = os.listdir(options.gene_dir)
-        for f in files:
-            if f.endswith(options.gene_ext):
-                gene_files.append(os.path.join(options.gene_dir, f))
-
-        # warn use if no files were found
-        if len(gene_files) == 0:
-            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
-            return
+        gene_files = self._input_files(options.nucleotide_gene_files, options.file_ext)
 
         # calculate amino acid usage
         codon_usage = CodonUsage(options.cpus, options.keep_ambiguous)
         genome_codon_usage, codon_set, _mean_length = codon_usage.run(gene_files)
 
         # write out results
-        self._write_usage_profile(genome_codon_usage, codon_set, options.output_file)
+        self._write_usage_profile(genome_codon_usage, codon_set, options.counts, options.output_file)
 
-        self.logger.info('')
-        self.logger.info('  Codon usage written to: %s' % options.output_file)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Codon usage written to: %s' % options.output_file)
 
     def stop_usage(self, options):
         """Stop codon usage command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - stop_usage] Calculating stop codon usage within each genome.')
-        self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
-        check_dir_exists(options.gene_dir)
-
-        # get list of files with called genes
-        gene_files = []
-        files = os.listdir(options.gene_dir)
-        for f in files:
-            if f.endswith(options.gene_ext):
-                gene_files.append(os.path.join(options.gene_dir, f))
-
-        # warn use if no files were found
-        if len(gene_files) == 0:
-            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
-            return
+        gene_files = self._input_files(options.nucleotide_gene_files, options.file_ext)
 
         # calculate amino acid usage
         codon_usage = CodonUsage(options.cpus, keep_ambiguous=False, stop_codon_only=True)
         genome_codon_usage, codon_set, mean_gene_length = codon_usage.run(gene_files)
 
         # write out results
-        fout = open(options.output_file, 'w')
-        for codon in codon_set:
-            fout.write('\t' + codon)
-            if mean_gene_length:
-                fout.write('\t' + codon + ': avg. seq. length')
-        fout.write('\n')
-
-        for genome_id, codons in genome_codon_usage.iteritems():
-            fout.write(genome_id)
-
+        if not options.mean_gene_length:
+            self._write_usage_profile(genome_codon_usage, codon_set, options.counts, options.output_file)
+        else:
+            fout = open(options.output_file, 'w')
             for codon in codon_set:
-                fout.write('\t%d' % codons.get(codon, 0))
-
+                fout.write('\t' + codon)
                 if mean_gene_length:
-                    mean_len = mean_gene_length[genome_id].get(codon, None)
-                    if mean_len:
-                        fout.write('\t%.1f' % mean_len)
-                    else:
-                        fout.write('\tna')
+                    fout.write('\t' + codon + ': avg. seq. length')
             fout.write('\n')
 
-        self.logger.info('')
-        self.logger.info('  Stop codon usage written to: %s' % options.output_file)
+            for genome_id, codons in genome_codon_usage.iteritems():
+                fout.write(genome_id)
 
-        self.time_keeper.print_time_stamp()
+                for codon in codon_set:
+                    fout.write('\t%d' % codons.get(codon, 0))
+
+                    if mean_gene_length:
+                        mean_len = mean_gene_length[genome_id].get(codon, None)
+                        if mean_len:
+                            fout.write('\t%.1f' % mean_len)
+                        else:
+                            fout.write('\tna')
+                fout.write('\n')
+
+        self.logger.info('Stop codon usage written to: %s' % options.output_file)
 
     def kmer_usage(self, options):
         """Kmer usage command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - kmer_usage] Calculating kmer usage within each genome.')
-        self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
         if options.k > 10 or options.k <= 0:
-            self.logger.warning('[Warning] CompareM only support kmers with k <= 10.')
+            self.logger.warning('CompareM only support kmers with k <= 10.')
             sys.exit(0)
 
-        genome_files = self._genome_files(options.genome_dir, options.genome_ext)
+        genome_files = self._input_files(options.genome_files, options.file_ext)
 
         # calculate amino acid usage
         kmer_usage = KmerUsage(options.k, options.cpus)
         genome_kmer_usage, kmer_set = kmer_usage.run(genome_files)
 
         # write out results
-        self.logger.info('')
-        self.logger.info('  Writing kmer profile to file (be patient!).')
-        self._write_usage_profile(genome_kmer_usage, kmer_set, options.output_file)
+        self.logger.info('Writing kmer profiles to file (be patient!).')
+        self._write_usage_profile(genome_kmer_usage, kmer_set, options.counts, options.output_file)
 
-        self.logger.info('')
-        self.logger.info('  Kmer usage written to: %s' % options.output_file)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Kmer usage written to: %s' % options.output_file)
 
     def lgt_di(self, options):
         """LGT dinucleotide usage command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - lgt_di] Calculating dinuceotide (3rd,1st) usage of genes.')
-        self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
         check_dir_exists(options.gene_dir)
 
@@ -386,18 +318,10 @@ class OptionsParser():
         lgt_dinucleotide = LgtDinucleotide(options.cpus)
         lgt_dinucleotide.run(gene_files, options.crit_value, options.output_dir)
 
-        self.logger.info('')
-        self.logger.info('  Dinucleotide usage written to directory: %s' % options.output_dir)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Dinucleotide usage written to directory: %s' % options.output_dir)
 
     def lgt_codon(self, options):
         """LGT dinucleotide usage command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - lgt_codon] Calculating codon usage of genes.')
-        self.logger.info('*******************************************************************************')
-        self.logger.info('')
 
         check_dir_exists(options.gene_dir)
 
@@ -416,47 +340,88 @@ class OptionsParser():
         lgt_codon = LgtCodon(options.cpus)
         lgt_codon.run(gene_files, options.output_dir)
 
-        self.logger.info('')
-        self.logger.info('  Codon usage written to directory: %s' % options.output_dir)
+        self.logger.info('Codon usage written to directory: %s' % options.output_dir)
+        
+    def diss(self, options):
+        """Calculate dissimilarity between usage profiles."""
+        
+        check_file_exists(options.profile_file)
+        
+        genome_ids = []
+        profiles = []
+        with open(options.profile_file) as f:
+            f.readline() # burn header
+            
+            for line in f:
+                line_split = line.rstrip().split('\t')
+                genome_id = line_split[0]
+                profile = [float(v) for v in line_split[1:]]
+                
+                genome_ids.append(genome_id)
+                profiles.append(profile)
+                
+        # calculate dissimilarity between genomes
+        d = scipy_pdist(profiles, metric=options.metric)
 
-        self.time_keeper.print_time_stamp()
-
-    def unique(self, options):
-        """Unique command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - unique] Identifying genes present in a single genome.')
-        self.logger.info('*******************************************************************************')
-
-        self.time_keeper.print_time_stamp()
+        fout = open(options.output_file, 'w')
+        if not options.full_matrix:
+            # write out lower triangle from condense dissimilarity matrix,
+            # in pairwise fashion
+            fout.write('Genome A\tGenome B\tDissimilarity\n')
+            condensed_idx = lambda i,j,n: n*j - j*(j+1)/2 + i - 1 - j
+            for i in xrange(1, len(genome_ids)):
+                for j in xrange(i):
+                    fout.write('%s\t%s\t%f\n' % (genome_ids[i], genome_ids[j], d[condensed_idx(i, j, len(genome_ids))]))
+        else:
+            # write out full dissimilarity matrix
+            ds = scipy_squareform(d)
+            for genome_id in genome_ids:
+                fout.write('\t' + genome_id)
+            fout.write('\n')
+            
+            for i, genome_id in enumerate(genome_ids):
+                fout.write(genome_id)
+                for j in xrange(len(genome_ids)):
+                    fout.write('\t%f' % ds[i,j])
+                fout.write('\n')
+        
+        fout.close()
+        
+        self.logger.info('Dissimilarity values written to: %s' % options.output_file)
 
     def pcoa_plot(self, options):
-        """Unique command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - pcoa_plot] Generating PCoA plot showing relative similarity of genomes.')
-        self.logger.info('*******************************************************************************')
+        """PCoA command"""
 
-        self.logger.info('')
-        self.logger.info('  Performing PCoA.')
-        pcoa = PCoA()
-        pcoa.plot(options.aai_summary_file)
+        self.logger.info('Performing PCoA.')
+        #pcoa = PCoA()
+        #pcoa.plot(options.aai_summary_file)
 
-        self.time_keeper.print_time_stamp()
+    def hclust(self, options):
+        """Hierarchical clustering command"""
+        
+        if options.similarity and not options.max_sim_value:
+            self.logger.error("The 'max_sim_value' must be specified for similarity values.")
+            sys.exit(-1)
+
+        self.logger.info('Performing hierarchical clustering.')
+        hclust = HierarchicalCluster()
+        hclust.run(options.pairwise_value_file,
+                    options.method, 
+                    options.similarity,
+                    options.max_sim_value,
+                    options.name_col1,
+                    options.name_col2,
+                    options.value_col,
+                    options.output_tree)
+        
+        self.logger.info('Newick tree of clustering written to: %s' % options.output_tree)
 
     def heatmap(self, options):
-        """Unique command"""
-        self.logger.info('')
-        self.logger.info('*******************************************************************************')
-        self.logger.info(' [CompareM - heatmap] Generating heatmap showing relative similarity of genomes.')
-        self.logger.info('*******************************************************************************')
+        """Heatmap command"""
 
-        self.logger.info('')
-        self.logger.info('  Making heatmap.')
-        heatmapper = Heatmap(options.aai_summary_file, options.output_file)
-        heatmapper.plot(options.cluster, options.method, options.metric)
-
-        self.time_keeper.print_time_stamp()
+        self.logger.info('Making heatmap.')
+        #heatmapper = Heatmap(options.aai_summary_file, options.output_file)
+        #heatmapper.plot(options.cluster, options.method, options.metric)
 
     def parse_options(self, options):
         """Parse user options and call the correct pipeline(s)"""
@@ -469,29 +434,68 @@ class OptionsParser():
 
         if(options.subparser_name == 'call_genes'):
             self.call_genes(options)
-        elif(options.subparser_name == 'rblast'):
-            self.rblast(options)
+        elif(options.subparser_name == 'similarity'):
+            self.similarity(options)
         elif(options.subparser_name == 'aai'):
             self.aai(options)
+        elif(options.subparser_name == 'classify'):
+            self.classify(options)
         elif(options.subparser_name == 'aai_wf'):
             root_dir = options.output_dir
             make_sure_path_exists(root_dir)
-
+            
             if options.proteins:
-                options.protein_dir = options.genome_dir
-                options.protein_ext = options.genome_ext
+                if options.file_ext == 'fna':
+                    self.logger.warning("Changing file extension from 'fna' to 'faa' since 'proteins' flag was given.")
+                    options.file_ext = 'faa'
+                options.query_proteins = options.input_files
+                options.target_protein = options.input_files
             else:
+                options.input_genomes = options.input_files
                 options.output_dir = os.path.join(root_dir, 'genes')
                 self.call_genes(options)
-                options.protein_dir = os.path.join(root_dir, 'genes')
-                options.protein_ext = 'faa'
+                options.query_proteins = os.path.join(root_dir, 'genes')
+                options.target_protein = os.path.join(root_dir, 'genes')
+                options.file_ext = 'faa'
 
-            options.output_dir = os.path.join(root_dir, 'rblast')
-            self.rblast(options)
-
-            options.output_dir = root_dir
-            options.rblast_dir = os.path.join(root_dir, 'rblast')
+            options.output_dir = os.path.join(root_dir, 'seq_similarity')
+            self.similarity(options)
+            
+            options.query_gene_file = os.path.join(options.output_dir, 'query_genes.faa')
+            options.sorted_hit_table = os.path.join(options.output_dir, 'hits_sorted.tsv')
+            options.output_dir = os.path.join(root_dir, 'aai')
             self.aai(options)
+        elif(options.subparser_name == 'classify_wf'):
+            root_dir = options.output_dir
+            make_sure_path_exists(root_dir)
+            
+            if options.proteins:
+                if options.file_ext == 'fna':
+                    self.logger.warning("Changing file extension from 'fna' to 'faa' since 'proteins' flag was given.")
+                    options.file_ext = 'faa'
+                options.query_proteins = options.query_files
+                options.target_protein = options.target_files
+            else:
+                options.input_genomes = options.query_files
+                options.output_dir = os.path.join(root_dir, 'query_genes')
+                self.call_genes(options)
+                
+                options.input_genomes = options.target_files
+                options.output_dir = os.path.join(root_dir, 'target_genes')
+                self.call_genes(options)
+                
+                options.query_proteins = os.path.join(root_dir, 'query_genes')
+                options.target_protein = os.path.join(root_dir, 'target_genes')
+                options.file_ext = 'faa'
+
+            options.output_dir = os.path.join(root_dir, 'seq_similarity')
+            self.similarity(options)
+            
+            options.query_gene_file = os.path.join(options.output_dir, 'query_genes.faa')
+            options.target_gene_file = os.path.join(options.output_dir, 'target_genes.faa')
+            options.sorted_hit_table = os.path.join(options.output_dir, 'hits_sorted.tsv')
+            options.output_dir = os.path.join(root_dir, 'classify')
+            self.classify(options)
         elif(options.subparser_name == 'aa_usage'):
             self.aa_usage(options)
         elif(options.subparser_name == 'codon_usage'):
@@ -504,8 +508,10 @@ class OptionsParser():
             self.lgt_di(options)
         elif(options.subparser_name == 'lgt_codon'):
             self.lgt_codon(options)
-        elif(options.subparser_name == 'unique'):
-            self.unique(options)
+        elif(options.subparser_name == 'diss'):
+            self.diss(options)
+        elif(options.subparser_name == 'hclust'):
+            self.hclust(options)
         elif(options.subparser_name == 'pcoa_plot'):
             self.pcoa_plot(options)
         elif(options.subparser_name == 'heatmap'):

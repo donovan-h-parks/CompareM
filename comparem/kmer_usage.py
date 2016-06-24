@@ -53,7 +53,7 @@ class KmerUsage(object):
         self.k = k
         self.cpus = cpus
 
-        self.logger.info('  Calculating unique kmers of size k = %d.' % self.k)
+        self.logger.info('Calculating unique kmers of size k = %d.' % self.k)
         self.signatures = GenomicSignature(self.k)
 
     def _producer(self, genome_file):
@@ -126,7 +126,7 @@ class KmerUsage(object):
             String indicating progress of data processing.
         """
 
-        return '    Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
+        return '  Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, total_items, float(processed_items) * 100 / total_items)
 
     def run(self, genome_files):
         """Calculate kmer usage over a set of genomes.
@@ -144,9 +144,13 @@ class KmerUsage(object):
            Set with all identified kmers.
         """
 
-        self.logger.info('  Calculating kmer usage for each genome.')
+        self.logger.info('Calculating kmer usage for each genome.')
+        
+        progress_func = self._progress
+        if self.logger.is_silent:
+            progress_func = None
 
         parallel = Parallel(self.cpus)
-        consumer_data = parallel.run(self._producer, self._consumer, genome_files, self._progress)
+        consumer_data = parallel.run(self._producer, self._consumer, genome_files, progress_func)
 
         return consumer_data.genome_kmer_usage, consumer_data.kmer_set
