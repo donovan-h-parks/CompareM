@@ -54,7 +54,7 @@ The most common task performed with CompareM is the calculation of amino acid id
 > comparem aai_wf <input_files> <output_dir>
 ```
 
-The <input_file> argument indicates the set of genomes to compare and can either i) a text file where each line indicating the location of a genome, or ii) a directory containing all genomes to be compared.  The genomic nucleotide sequences of genomes must be in FASTA format. The <output_dir> indicates where the desired directory for all output files. A typical use of this command would be:
+The <input_file> argument indicates the set of genomes to compare and can either i) a text file where each line indicating the location of a genome, or ii) a directory containing all genomes to be compared.  The genomic nucleotide sequences of genomes must be in FASTA format. The <output_dir> indicates the desired directory for all output files. A typical use of this command would be:
 ```
 > comparem --cpus 32 aai_wf my_genomes aai_output
 ```
