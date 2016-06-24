@@ -47,9 +47,9 @@ Usage information about specific functions can also be accessed through the help
 > comparem aa_usage –h
 ```
 
-## Common Workflow
+## Amino Acid Identity Workflow
 
-The most common task performed with CompareM is the calculation of amino acid identities (AAI) between a set of genomes. This can be performed using the <i>aai_wf</i> command:
+The most common task performed with CompareM is the calculation of pairwise amino acid identity (AAI) values between a set of genomes. This can be performed using the <i>aai_wf</i> command:
 ```
 > comparem aai_wf <input_files> <output_dir>
 ```
@@ -62,6 +62,18 @@ The <input_file> argument indicates the set of genomes to compare and can either
 where the directory <i>my_genomes</i> contains a set of genomes in FASTA format, the results are to be written to a directory called <i>aai_output</i>, and 32 processors should be used to calculate the results.
 
 A number of optional arguments can also be specified. This includes the sequence similarity parameters used to define reciprocal best hits between genomes(i.e., homologs). By default the e-value (<i>--evalue</i>), percent sequence identity (<i>--per_identity</i>), and percent alignment length (<i>--per_aln_len</i>) parameters are set to 1e-5, 30%, and 70%. When specifying a directory of genomes to process, CompareM only processes files with a <i>fna</i> extension. This can be changes with the <i>--file_ext</i> argument. In addition, if genomes are already represented by amino acid protein sequences (as opposed to genomic nucleotide sequences), this must be specified with the <i>--proteins</i> flag. Otherwise, genes will be identified <i>de novo</i> using the Prodigal gene caller. The time to compute all pairwise AAI values can be substantially reduced by using multiple processors as specified with the <i>--cpus</i> argument. Other arguments are for specialized uses and are discussed in the User's Guide.
+
+Pairwise AAI statistics are provided in the output file ./<output_dir>/aai/aai_summary.tsv. This file consists of 8 columns indicating:
+*	Identifier of the first genome
+*	Number of genes in the first genome
+*	Identifier of the second genome
+*	Number of genes in the second genome
+*	Number of orthologous genes identified between the two genomes
+*	The mean amino acid identity (AAI) of orthologous genes 
+*	The standard deviation of the AAI across orthologous genes
+*	The orthologous fraction (OF) between the two genomes defined as the number of orthologous genes divided the minimum number of genes in either genome
+
+Other output files produced by this command are described below.
 
 
 ## Program Usage
