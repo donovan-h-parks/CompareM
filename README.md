@@ -17,7 +17,7 @@ CompareM is a software toolkit which supports performing large-scale comparative
 * kmer usage for k <= 8 (e.g., tetranucleotide)
 * stop codon usage
 
-<i>Other:</it>
+<i>Other:</i>
 * di-nucleotide and codon usage patterns for identifying LGT
 * visualization of usage patterns with PCA plots and hierarchical clustering dendrograms
 
