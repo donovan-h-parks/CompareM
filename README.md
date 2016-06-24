@@ -31,6 +31,21 @@ This package uses the numpy and biolib python packages, and requires the follow 
 * [prodigal](http://prodigal.ornl.gov/) >= 2.6.2: Hyatt D, Locascio PF, Hauser LJ, Uberbacher EC. 2012. Gene and translation initiation site prediction in metagenomic sequences. <i>Bioinformatics</i> 28: 2223-2230.
 * [diamond](http://ab.inf.uni-tuebingen.de/software/diamond/) >= 0.7.12: Buchfink B, Xie C, Huson DH. 2015. Fast and sensitive protein alignment using DIAMOND. <i>Nature Methods</i> 12: 59–60 doi:10.1038/nmeth.3176.
 
+## Quick Start
+
+The functionality provided by CompareM can be accessed through the help menu:
+> comparem -h
+
+Usage information about specific functions can also be accessed through the help menu, e.g.:
+> comparem aa_usage -h
+
+The most common task performed with CompareM is the calculation of pairwise amino acid identities between a set of genomes. This can be performed using the <i>aai_wf</i> command:
+> comparem aai_wf 
+
+## Program Usage
+
+Detailed information regarding the use of CompareM can be found in the User's Guide (user_guide.pdf).
+
 ## Cite
 
 If you find this package useful, please cite this git repository (https://github.com/dparks1134/CompareM)
