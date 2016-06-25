@@ -24,16 +24,17 @@ CompareM is a software toolkit which supports performing large-scale comparative
 
 ## Install
 
-The simplest way to install this package is through pip:
-```
-> sudo pip install comparem
-```
-
-This package uses the numpy, scipy, matplotlib, and biolib python packages, and requires the follow bioinformatic programs to be on your system path:
-
+CompareM makes use of the numpy, scipy, matplotlib, and biolib python packages, and assumes the following 3rd party dependencies are on your system path:
 * [prodigal](http://prodigal.ornl.gov/) >= 2.6.2: Hyatt D, Locascio PF, Hauser LJ, Uberbacher EC. 2012. Gene and translation initiation site prediction in metagenomic sequences. <i>Bioinformatics</i> 28: 2223-2230.
 * [diamond](http://ab.inf.uni-tuebingen.de/software/diamond/) >= 0.7.12: Buchfink B, Xie C, Huson DH. 2015. Fast and sensitive protein alignment using DIAMOND. <i>Nature Methods</i> 12: 59–60 doi:10.1038/nmeth.3176.
 
+Most systems already contain the “SciPy Stack” of numpy, scipy, and matplotlib. However, if you need to install these on your system, instructions can be found at:
+* http://www.scipy.org/install.html
+
+Once these are installed, CompareM can be installed using pip:
+```
+> sudo pip install comparem
+```
 
 ## Quick Start
 
