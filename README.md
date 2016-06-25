@@ -19,7 +19,7 @@ CompareM is a software toolkit which supports performing large-scale comparative
 
 <i>Other:</i>
 * di-nucleotide and codon usage patterns for identifying LGT
-* visualization of usage patterns with PCA plots and hierarchical clustering dendrograms
+* data exploration using dissimilarity matrices, hierarchical clustering trees, and heat maps
 
 
 ## Install
@@ -29,7 +29,7 @@ The simplest way to install this package is through pip:
 > sudo pip install comparem
 ```
 
-This package uses the numpy and biolib python packages, and requires the follow bioinformatic programs to be on your system path:
+This package uses the numpy, scipy, matplotlib, and biolib python packages, and requires the follow bioinformatic programs to be on your system path:
 
 * [prodigal](http://prodigal.ornl.gov/) >= 2.6.2: Hyatt D, Locascio PF, Hauser LJ, Uberbacher EC. 2012. Gene and translation initiation site prediction in metagenomic sequences. <i>Bioinformatics</i> 28: 2223-2230.
 * [diamond](http://ab.inf.uni-tuebingen.de/software/diamond/) >= 0.7.12: Buchfink B, Xie C, Huson DH. 2015. Fast and sensitive protein alignment using DIAMOND. <i>Nature Methods</i> 12: 59–60 doi:10.1038/nmeth.3176.
