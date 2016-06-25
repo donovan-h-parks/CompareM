@@ -22,7 +22,7 @@ CompareM is a software toolkit which supports performing large-scale comparative
 * data exploration using dissimilarity matrices, hierarchical clustering trees, and heat maps
 
 
-## Install
+## Installation
 
 CompareM makes use of the numpy, scipy, matplotlib, and biolib python packages, and assumes the following 3rd party dependencies are on your system path:
 * [prodigal](http://prodigal.ornl.gov/) >= 2.6.2: Hyatt D, Locascio PF, Hauser LJ, Uberbacher EC. 2012. Gene and translation initiation site prediction in metagenomic sequences. <i>Bioinformatics</i> 28: 2223-2230.
@@ -31,7 +31,7 @@ CompareM makes use of the numpy, scipy, matplotlib, and biolib python packages, 
 Most systems already contain the “SciPy Stack” of numpy, scipy, and matplotlib. However, if you need to install these on your system, instructions can be found at:
 * http://www.scipy.org/install.html
 
-Once these are installed, CompareM can be installed using pip:
+Once these are installed, CompareM can be installed using [pip](https://pypi.python.org/pypi/comparem):
 ```
 > sudo pip install comparem
 ```
