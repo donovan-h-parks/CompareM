@@ -326,7 +326,11 @@ class LgtDinucleotide(object):
 
         self.critical_value = critical_value
 
-        self.logger.info('  Calculating dinucleotide usage for each genome.')
+        self.logger.info('Calculating dinucleotide usage for each genome.')
+        
+        progress_func = self._progress
+        if self.logger.is_silent:
+            progress_func = None
 
         parallel = Parallel(self.cpus)
-        parallel.run(self._producer, None, gene_files, self._progress)
+        parallel.run(self._producer, None, gene_files, progress_func)

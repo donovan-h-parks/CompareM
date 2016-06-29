@@ -52,6 +52,9 @@ Scheduled functionality:
 
     General statistics:
      genome_stats -> [Not implemented] Calculate statistics for each genome (e.g., GC, coding density)
+     
+     pcoa_plot -> [Not implemented] Generate PCoA plot indicating relative similarity of genomes
+     heatmap   -> Generate a heatmap of the similarities between genomes
 
 *****************************************************************************
 """
@@ -78,7 +81,7 @@ def print_help():
      call_genes -> Identify genes within genomes
                      
     Gene homology and genome similarity:
-     similarity -> Perform sequence similarity search between genes
+     similarity -> Perform reciprocal sequence similarity search between proteins
      aai        -> Calculate AAI between all pairs of genomes
      classify   -> Identify similar genomes based on AAI value
 
@@ -95,8 +98,6 @@ def print_help():
     Visualization and exploration:
      diss      -> Calculate the dissimilarity between usage profiles
      hclust    -> Perform hierarchical clustering
-     pcoa_plot -> [Not implemented] Generate PCoA plot indicating relative similarity of genomes
-     heatmap   -> Generate a heatmap of the similarities between genomes
 
   Use: comparem <command> -h for command specific help.
 
@@ -126,7 +127,7 @@ if __name__ == '__main__':
                                         formatter_class=CustomHelpFormatter,
                                         description='Perform sequence similarity search between genes.')
     similarity_parser.add_argument('query_proteins', help="query protein files to process")
-    similarity_parser.add_argument('target_protein', help="target protein files to process")
+    similarity_parser.add_argument('target_proteins', help="target protein files to process")
     similarity_parser.add_argument('output_dir', help="output directory")
     similarity_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="maximum e-value for reporting an alignments")
     similarity_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="minimum percent identity for reporting an alignment")
@@ -162,6 +163,7 @@ if __name__ == '__main__':
     classify_parser.add_argument('sorted_hit_table', help="sorted file indicating genes passing sequence similarity criteria")
     classify_parser.add_argument('output_dir', help="output directory")
     classify_parser.add_argument('-k', '--num_top_targets', type=int, default=1, help="number of top scoring target genomes to report per query genome")
+    classify_parser.add_argument('-t', '--taxonomy_file', help="file indicating taxonomic identification of all target genomes")
     classify_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
     classify_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
     classify_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
@@ -198,6 +200,7 @@ if __name__ == '__main__':
     classify_wf_parser.add_argument('target_files', help="target genome files")
     classify_wf_parser.add_argument('output_dir', help="output directory")
     classify_wf_parser.add_argument('-k', '--num_top_targets', type=int, default=1, help="number of top scoring target genomes to report per query genome")
+    classify_wf_parser.add_argument('-t', '--taxonomy_file', help="file indicating taxonomic identification of all target genomes")
     classify_wf_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
     classify_wf_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
     classify_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
@@ -254,7 +257,7 @@ if __name__ == '__main__':
     stop_codon_parser.add_argument('nucleotide_gene_files', help="input files with genes in nucleotide space")
     stop_codon_parser.add_argument('output_file', help="output file indicating stop codon usage of each genome")
     stop_codon_parser.add_argument('--counts', help='output raw counts instead of frequencies', action='store_true')
-    stop_codon_parser.add_argument('--mean_gene_length', help='report mean gene length for gense with each stop codon', action='store_true')
+    stop_codon_parser.add_argument('--mean_gene_length', help='report mean gene length for genes with each stop codon', action='store_true')
     stop_codon_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
     stop_codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
     stop_codon_parser.add_argument('--silent', help="suppress output", action='store_true')
@@ -263,7 +266,7 @@ if __name__ == '__main__':
     lgt_di_parser = subparsers.add_parser('lgt_di',
                                         formatter_class=CustomHelpFormatter,
                                         description='Calculate dinuceotide (3rd,1st) usage of genes  to identify putative LGT events.')
-    lgt_di_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
+    lgt_di_parser.add_argument('nucleotide_gene_files', help="input files with genes in nucleotide space")
     lgt_di_parser.add_argument('output_dir', help="output directory to write dinucleotide usage for each gene in each genome")
     lgt_di_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
     lgt_di_parser.add_argument('--crit_value', type=float, default=0.001, help="critical value for defining deviant genes")
@@ -274,7 +277,7 @@ if __name__ == '__main__':
     lgt_codon_parser = subparsers.add_parser('lgt_codon',
                                         formatter_class=CustomHelpFormatter,
                                         description='Calculate codon usage of genes to identify putative LGT events.')
-    lgt_codon_parser.add_argument('gene_dir', help="directory containing fasta files with called genes in nucleotide space")
+    lgt_codon_parser.add_argument('nucleotide_gene_files', help="input files with genes in nucleotide space")
     lgt_codon_parser.add_argument('output_dir', help="output directory to write dinucleotide usage for each gene in each genome")
     lgt_codon_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
     lgt_codon_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)

@@ -30,7 +30,7 @@ from comparem.lgt_dinucleotide import LgtDinucleotide
 from comparem.lgt_codon import LgtCodon
 from comparem.hierarchical_clustering import HierarchicalCluster
 #from comparem.PCoA import PCoA
-#from comparem.plots.heatmap import Heatmap
+from comparem.plots.heatmap import Heatmap
 
 import biolib.seq_io as seq_io
 from biolib.external.prodigal import Prodigal
@@ -67,6 +67,9 @@ class OptionsParser():
         if os.path.isfile(input):
             for line in  open(input):
                 input_file = line.strip().split('\t')[0]
+                if not os.path.exists(input_file):
+                    self.logger.error('Specified input file does not exist: %s' % input_file)
+                    sys.exit()
                 input_files.append(input_file)
                 
             if not input_files:
@@ -161,7 +164,7 @@ class OptionsParser():
         make_sure_path_exists(options.output_dir)
         
         query_gene_files = self._input_files(options.query_proteins, options.file_ext)
-        target_gene_files = self._input_files(options.target_protein, options.file_ext)
+        target_gene_files = self._input_files(options.target_proteins, options.file_ext)
         
         ss = SimilaritySearch(options.cpus)
         ss.run(query_gene_files, 
@@ -210,6 +213,7 @@ class OptionsParser():
                                         options.per_identity,
                                         options.per_aln_len,
                                         options.num_top_targets,
+                                        options.taxonomy_file,
                                         options.keep_rbhs,
                                         options.output_dir)
         
@@ -301,19 +305,7 @@ class OptionsParser():
     def lgt_di(self, options):
         """LGT dinucleotide usage command"""
 
-        check_dir_exists(options.gene_dir)
-
-        # get list of files with called genes
-        gene_files = []
-        files = os.listdir(options.gene_dir)
-        for f in files:
-            if f.endswith(options.gene_ext):
-                gene_files.append(os.path.join(options.gene_dir, f))
-
-        # warn use if no files were found
-        if len(gene_files) == 0:
-            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
-            return
+        gene_files = self._input_files(options.nucleotide_gene_files, options.file_ext)
 
         lgt_dinucleotide = LgtDinucleotide(options.cpus)
         lgt_dinucleotide.run(gene_files, options.crit_value, options.output_dir)
@@ -323,19 +315,7 @@ class OptionsParser():
     def lgt_codon(self, options):
         """LGT dinucleotide usage command"""
 
-        check_dir_exists(options.gene_dir)
-
-        # get list of files with called genes
-        gene_files = []
-        files = os.listdir(options.gene_dir)
-        for f in files:
-            if f.endswith(options.gene_ext):
-                gene_files.append(os.path.join(options.gene_dir, f))
-
-        # warn use if no files were found
-        if len(gene_files) == 0:
-            self.logger.warning('  [Warning] No gene files found. Check the --gene_ext flag used to identify gene files.')
-            return
+        gene_files = self._input_files(options.nucleotide_gene_files, options.file_ext)
 
         lgt_codon = LgtCodon(options.cpus)
         lgt_codon.run(gene_files, options.output_dir)
@@ -414,14 +394,14 @@ class OptionsParser():
                     options.value_col,
                     options.output_tree)
         
-        self.logger.info('Newick tree of clustering written to: %s' % options.output_tree)
+        self.logger.info('Hierarchical cluster tree written to: %s' % options.output_tree)
 
     def heatmap(self, options):
         """Heatmap command"""
 
         self.logger.info('Making heatmap.')
-        #heatmapper = Heatmap(options.aai_summary_file, options.output_file)
-        #heatmapper.plot(options.cluster, options.method, options.metric)
+        heatmapper = Heatmap(options.aai_summary_file, options.output_file)
+        heatmapper.plot(options.cluster, options.method, options.metric)
 
     def parse_options(self, options):
         """Parse user options and call the correct pipeline(s)"""
@@ -449,16 +429,16 @@ class OptionsParser():
                     self.logger.warning("Changing file extension from 'fna' to 'faa' since 'proteins' flag was given.")
                     options.file_ext = 'faa'
                 options.query_proteins = options.input_files
-                options.target_protein = options.input_files
+                options.target_proteins = options.input_files
             else:
                 options.input_genomes = options.input_files
                 options.output_dir = os.path.join(root_dir, 'genes')
                 self.call_genes(options)
                 options.query_proteins = os.path.join(root_dir, 'genes')
-                options.target_protein = os.path.join(root_dir, 'genes')
+                options.target_proteins = os.path.join(root_dir, 'genes')
                 options.file_ext = 'faa'
 
-            options.output_dir = os.path.join(root_dir, 'seq_similarity')
+            options.output_dir = os.path.join(root_dir, 'similarity')
             self.similarity(options)
             
             options.query_gene_file = os.path.join(options.output_dir, 'query_genes.faa')
@@ -474,7 +454,7 @@ class OptionsParser():
                     self.logger.warning("Changing file extension from 'fna' to 'faa' since 'proteins' flag was given.")
                     options.file_ext = 'faa'
                 options.query_proteins = options.query_files
-                options.target_protein = options.target_files
+                options.target_proteins = options.target_files
             else:
                 options.input_genomes = options.query_files
                 options.output_dir = os.path.join(root_dir, 'query_genes')
@@ -485,10 +465,10 @@ class OptionsParser():
                 self.call_genes(options)
                 
                 options.query_proteins = os.path.join(root_dir, 'query_genes')
-                options.target_protein = os.path.join(root_dir, 'target_genes')
+                options.target_proteins = os.path.join(root_dir, 'target_genes')
                 options.file_ext = 'faa'
 
-            options.output_dir = os.path.join(root_dir, 'seq_similarity')
+            options.output_dir = os.path.join(root_dir, 'similarity')
             self.similarity(options)
             
             options.query_gene_file = os.path.join(options.output_dir, 'query_genes.faa')

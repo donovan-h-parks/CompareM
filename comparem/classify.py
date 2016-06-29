@@ -55,6 +55,7 @@ class Classify(object):
                     per_iden_threshold, 
                     per_aln_len_threshold,
                     num_top_targets,
+                    taxonomy_file,
                     keep_rbhs,
                     output_dir):
         """Classify genomes based on AAI to reference genomes.
@@ -75,12 +76,21 @@ class Classify(object):
             Alignment length threshold used to define a homologous gene.
         num_top_targets : int
             Number of top scoring target genomes to report per query genome.
+        taxonomy_file : str
+            File indicating taxonomic identification of all target genomes.
         keep_rbhs : boolean
             Flag indicating if RBH should be written to file.
         output_dir : str
             Directory to store AAI results.
         """
         
+        # read taxonomic identification of each genome
+        taxonomy = {}
+        if taxonomy_file:
+            for line in open(taxonomy_file):
+                genome_id, taxa_str = line.rstrip().split('\t')
+                taxonomy[genome_id] = taxa_str
+
         # calculate AAI between query and target genomes
         aai_output_dir = os.path.join(output_dir, 'aai')
         make_sure_path_exists(aai_output_dir)
@@ -102,24 +112,32 @@ class Classify(object):
             hits = defaultdict(list)
             for line in f:
                 line_split = line.rstrip().split('\t')
-                genome_idA = line_split[0]
-                genome_idB = line_split[2]
+                query_id = line_split[0]
+                target_id = line_split[2]
                 aai = float(line_split[5])
                 of = float(line_split[7])
                 
-                hits[genome_idA].append([genome_idB, aai, of])
-                hits[genome_idB].append([genome_idA, aai, of])
-
+                hits[query_id].append([target_id, aai, of])
+                
         # report top matches
         results_file = os.path.join(output_dir, 'classify.tsv')
         fout = open(results_file, 'w')
-        fout.write('Query Id\tTarget Id\tAAI\tOF\n')
-        
+        fout.write('Query Id\tTarget Id\tAAI\tOF')
+        if taxonomy:
+            fout.write('\tTarget Taxonomy')
+        fout.write('\n')
+             
         for query_id, cur_hits in hits.iteritems():
             cur_hits.sort(key=lambda x: x[1], reverse=True)
             for i in xrange(0, min(num_top_targets, len(cur_hits))):
                 data = [query_id] + cur_hits[i]
-                fout.write('%s\t%s\t%.2f\t%.2f\n' % tuple(data))
+                fout.write('%s\t%s\t%.2f\t%.2f' % tuple(data))
+                
+                target_id = cur_hits[i][0]
+                if target_id in taxonomy:
+                    fout.write('\t%s' % taxonomy[target_id])
+                
+                fout.write('\n')
         fout.close()
         
         return results_file

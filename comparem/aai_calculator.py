@@ -127,6 +127,15 @@ class AAICalculator(object):
 
         # get valid hits for genome
         hits = {}
+        
+        if query_genome_id not in offset_table:
+            # proteins in query genome failed to hit any target proteins
+            return hits
+            
+        if target_genome_id not in offset_table[query_genome_id]:
+            # proteins in query genome failed to hit any proteins in target genome
+            return hits
+            
         start_pos, end_pos = offset_table[query_genome_id][target_genome_id]
         hit_table_stream.seek(start_pos)
         while hit_table_stream.tell() < end_pos:
@@ -227,8 +236,8 @@ class AAICalculator(object):
             if len(per_identity_hits) >= 2:
                 std_per_identity_hits = std(per_identity_hits)
 
-            num_genesA = self.genes_in_genomes[query_genome_id]
-            num_genesB = self.genes_in_genomes[cur_genome_id]
+            num_genesA = self.query_gene_count[query_genome_id]
+            num_genesB = self.target_gene_count[cur_genome_id]
             num_rbhs = len(per_identity_hits)
             of = num_rbhs * 100.0 / min(num_genesA, num_genesB)
             
@@ -329,10 +338,11 @@ class AAICalculator(object):
         self.keep_rbhs = keep_rbhs
         self.output_dir = output_dir
 
-        # calculate length of genes and number of genes each genome
+        # calculate length of genes and number of genes in each genome
         self.logger.info('Calculating length of genes.')
-        self.gene_lengths  = {}
-        self.genes_in_genomes = defaultdict(int)
+        self.gene_lengths = {}
+        self.query_gene_count = defaultdict(int)
+        query_genomes = set()
         for seq_id, seq in seq_io.read_fasta_seq(query_gene_file):
             if seq[-1] == '*':
                 self.gene_lengths[seq_id] = len(seq) - 1
@@ -340,43 +350,56 @@ class AAICalculator(object):
                 self.gene_lengths[seq_id] = len(seq)
                 
             genome_id = seq_id[0:seq_id.find('~')]
-            self.genes_in_genomes[genome_id] += 1
+            self.query_gene_count[genome_id] += 1
+            query_genomes.add(genome_id)
             
+        self.target_gene_count = defaultdict(int)
+        target_genomes = set()
         if target_gene_file:
             for seq_id, seq in seq_io.read_fasta_seq(target_gene_file):
-                if seq_id in self.gene_lengths:
-                    continue
-                    
                 if seq[-1] == '*':
                     self.gene_lengths[seq_id] = len(seq) - 1
                 else:
                     self.gene_lengths[seq_id] = len(seq)
                     
                 genome_id = seq_id[0:seq_id.find('~')]
-                self.genes_in_genomes[genome_id] += 1
+                self.target_gene_count[genome_id] += 1
+                target_genomes.add(genome_id)
+        else:
+            self.target_gene_count = self.query_gene_count
 
         # get byte offset of hits from each genome
         self.logger.info('Indexing sorted hit table.')
         self.offset_table = self._genome_offsets(self.sorted_hit_table)
 
         # calculate AAI between each pair of genomes in parallel
-        ng = len(self.genes_in_genomes)
-        self.num_pairs = (ng*ng - ng) / 2
-        self.logger.info('Calculating amino acid identity between all %d pairs of genomes:' % self.num_pairs)
-        
+        if target_genomes:
+            # compare query genomes to target genomes
+            self.num_pairs = len(query_genomes) * len(target_genomes)
+            self.logger.info('Calculating AAI between %d query and %d target genomes:' % (len(query_genomes), len(target_genomes)))
+        else:
+            # compute pairwise values between target genomes
+            ng = len(query_genomes)
+            self.num_pairs = (ng*ng - ng) / 2
+            self.logger.info('Calculating AAI between all %d pairs of genomes:' % self.num_pairs)
+            
         if self.num_pairs == 0:
             self.logger.warning('No genome pairs identified.')
             return
 
         genome_id_lists = []
-        genome_ids = self.genes_in_genomes.keys()
-        for i in xrange(0, len(genome_ids)):
-            genome_idI = genome_ids[i]
+        query_genomes = list(query_genomes)
+        target_genomes = list(target_genomes)
+        for i in xrange(0, len(query_genomes)):
+            genome_idI = query_genomes[i]
             
-            genome_id_list = []
-            for j in xrange(i + 1, len(genome_ids)):
-                genome_idJ = genome_ids[j]
-                genome_id_list.append(genome_idJ)
+            if target_genomes:
+                genome_id_list = target_genomes
+            else:
+                genome_id_list = []
+                for j in xrange(i + 1, len(query_genomes)):
+                    genome_idJ = query_genomes[j]
+                    genome_id_list.append(genome_idJ)
 
             genome_id_lists.append((genome_idI, genome_id_list))
 
@@ -404,7 +427,7 @@ class AAICalculator(object):
         if self.keep_rbhs:
             self.logger.info('Concatenating RBH files.')
             rbh_files = []
-            for genome_id in genome_ids:
+            for genome_id in query_genomes:
                 rbh_files.append(os.path.join(self.output_dir, genome_id + '.rbh.tsv'))
                 
             rbh_output_file = os.path.join(self.output_dir, 'rbh.tsv')

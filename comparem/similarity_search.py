@@ -27,6 +27,7 @@ import sys
 import subprocess
 import logging
 import tempfile
+import shutil
 
 import biolib.seq_io as seq_io
 from biolib.common import concatenate_files, remove_extension, make_sure_path_exists
@@ -50,7 +51,7 @@ class SimilaritySearch(object):
 
         self.cpus = cpus
         
-    def _prefix_gene_identifiers(self, gene_files, keep_headers, gene_out_dir):
+    def _prefix_gene_identifiers(self, gene_files, keep_headers, output_file):
         """Prefix all gene IDs with genome IDs: <genome_id>~<gene_id>.
         
         Parameters
@@ -59,48 +60,53 @@ class SimilaritySearch(object):
             Genes in fasta files to modify.
         keep_headers : boolean
             If True, indicates FASTA headers already have the format <genome_id>~<gene_id>.
-        gene_out_dir : str
-            Directory to store modified gene files.
-        Returns
-        -------
-        list
-            List of strings indicating files with modified gene IDs.
+        output_file : str
+            Name of FASTA file to contain modified genes.
         """
         
-        modified_gene_files = []
-        for gf in gene_files:
-            if keep_headers:
-                modified_gene_files.append(gf)
-            else:                
-                genome_id = remove_extension(gf)
-
-                aa_file = os.path.join(gene_out_dir, genome_id + '.faa')
-                fout = open(aa_file, 'w')
-                for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
-                    fout.write('>' + genome_id + '~' + seq_id  + ' ' + annotation + '\n')
-                    fout.write(seq + '\n')
-                fout.close()
-
-                modified_gene_files.append(aa_file)
+        fout = open(output_file, 'w')
+        for gf in gene_files:           
+            genome_id = remove_extension(gf)
+            if genome_id.endswith('_genes'):
+                genome_id = genome_id[0:genome_id.rfind('_genes')]
                 
-        return modified_gene_files
+            for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
+                if keep_headers:
+                    fout.write('>' + seq_id  + ' ' + annotation + '\n')
+                else:
+                    fout.write('>' + genome_id + '~' + seq_id  + ' ' + annotation + '\n')
+                fout.write(seq + '\n')
+        fout.close()
         
-    def _run_blastp(self, query_gene_file, 
-                            target_gene_file, 
-                            evalue, 
-                            per_identity, 
-                            per_aln_len,
-                            max_hits,
-                            tmp_dir,
-                            output_dir):
-        """Perform similarity search of query genes against target genes.
+    def _sort_hit_table(self, input_hit_table, output_hit_table):
+        """Sort hit table.
+        
+        Parameters
+        ----------
+        input_hit_table : str
+            Table to sort.
+        output_hit_table : str
+            Name of sorted output table. 
+        """
+        
+        self.logger.info('Sorting table with hits (be patient!).')
+        os.system("LC_ALL=C sed -i 's/~/\t/g' %s" % input_hit_table)
+        os.system("LC_ALL=C sort --parallel=8 -o %s -k1,1 -k3,3 %s" % (input_hit_table, input_hit_table))
+        os.system('mv %s %s' % (input_hit_table, output_hit_table))
+     
+    def _run_self_blastp(self, query_gene_file, 
+                                evalue, 
+                                per_identity, 
+                                per_aln_len,
+                                max_hits,
+                                tmp_dir,
+                                output_dir):
+        """Perform similarity search of query genes against themselves.
 
         Parameters
         ----------
         query_gene_file : str
             File with all query sequences.
-        target_gene_files : str
-            File with all subject sequences
         evalue : float
             E-value threshold for reporting hits.
         per_identity : float
@@ -116,10 +122,10 @@ class SimilaritySearch(object):
         """
         
         # concatenate all gene files and create a single diamond database
-        self.logger.info('Creating diamond database (be patient!).')
+        self.logger.info('Creating BLASTP database (be patient!).')
         
         blast = Blast(self.cpus, silent=True)
-        blast.create_blastp_db(target_gene_file)
+        blast.create_blastp_db(query_gene_file)
         
         # create temporary hits table
         if tmp_dir:
@@ -132,34 +138,28 @@ class SimilaritySearch(object):
         tmp_hits_table.close()
 
         # blast all genes against the database
-        self.logger.info('Identifying hits between query and target genomes (be patient!).')
-        hits_daa_file = os.path.join(output_dir, 'hits')
-        blast.blastp(query_gene_file, target_gene_file, tmp_hits_table.name, evalue, max_hits, task='blastp-fast')
+        self.logger.info('Performing sequence similarity search between all query genomes (be patient!).')
+        hits_daa_file = os.path.join(output_dir, 'query_hits')
+        blast.blastp(query_gene_file, query_gene_file, tmp_hits_table.name, evalue, max_hits, task='blastp-fast')
         
         # sort hit table
-        self.logger.info('Sorting table with hits (be patient!).')
         hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
-        os.system("LC_ALL=C sed -i 's/~/\t/g' %s" % tmp_hits_table.name)
-        os.system("LC_ALL=C sort --parallel=8 -o %s -k1,1 -k3,3 %s" % (tmp_hits_table.name, tmp_hits_table.name))
-        os.system('mv %s %s' % (tmp_hits_table.name, hits_table_file))
-        
-    def _run_diamond(self, query_gene_file, 
-                            target_gene_file, 
-                            evalue, 
-                            per_identity, 
-                            per_aln_len,
-                            max_hits,
-                            high_mem,
-                            tmp_dir,
-                            output_dir):
-        """Perform similarity search of query genes against target genes.
+        self._sort_hit_table(tmp_hits_table.name, hits_table_file)
+                
+    def _run_self_diamond(self, query_gene_file, 
+                                evalue, 
+                                per_identity, 
+                                per_aln_len,
+                                max_hits,
+                                high_mem,
+                                tmp_dir,
+                                output_dir):
+        """Perform similarity search of query genes against themselves.
 
         Parameters
         ----------
         query_gene_file : str
             File with all query sequences.
-        target_gene_files : str
-            File with all subject sequences
         evalue : float
             E-value threshold for reporting hits.
         per_identity : float
@@ -174,20 +174,18 @@ class SimilaritySearch(object):
             Directory to store blast results.
         """
         
-        # concatenate all gene files and create a single diamond database
-        self.logger.info('Creating diamond database (be patient!).')
+        self.logger.info('Creating DIAMOND database (be patient!).')
         
-        diamond_db = os.path.join(output_dir, 'target_genes')
-
+        diamond_db = os.path.join(output_dir, 'query_genes')
         diamond = Diamond(self.cpus)
         if high_mem:
-            diamond.make_database(target_gene_file, diamond_db, block_size=8)
+            diamond.make_database(query_gene_file, diamond_db, block_size=8)
         else:
-            diamond.make_database(target_gene_file, diamond_db)
+            diamond.make_database(query_gene_file, diamond_db)
 
         # blast all genes against the database
-        self.logger.info('Identifying hits between query and target genomes (be patient!).')
-        hits_daa_file = os.path.join(output_dir, 'hits')
+        self.logger.info('Performing self similarity sequence between genomes (be patient!).')
+        hits_daa_file = os.path.join(output_dir, 'query_hits')
         
         if high_mem:
             diamond.blastp(query_gene_file, diamond_db, evalue, per_identity, per_aln_len, max_hits, hits_daa_file, tmp_dir, chunk_size=1)
@@ -208,11 +206,120 @@ class SimilaritySearch(object):
         diamond.view(hits_daa_file + '.daa', tmp_hits_table.name)
         
         # sort hit table
-        self.logger.info('Sorting table with hits (be patient!).')
         hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
-        os.system("LC_ALL=C sed -i 's/~/\t/g' %s" % tmp_hits_table.name)
-        os.system("LC_ALL=C sort --parallel=8 -o %s -k1,1 -k3,3 %s" % (tmp_hits_table.name, tmp_hits_table.name))
-        os.system('mv %s %s' % (tmp_hits_table.name, hits_table_file))
+        self._sort_hit_table(tmp_hits_table.name, hits_table_file)
+        
+        
+    def _run_reciprocal_diamond(self, query_gene_file,
+                                        target_gene_file,
+                                        evalue, 
+                                        per_identity, 
+                                        per_aln_len,
+                                        max_hits,
+                                        high_mem,
+                                        tmp_dir,
+                                        output_dir):
+        """Perform similarity search of query genes against target genes, and reciprocal hits.
+
+        Parameters
+        ----------
+        query_gene_file : str
+            File with all query proteins.
+        target_gene_file : str
+            File with all target proteins.
+        evalue : float
+            E-value threshold for reporting hits.
+        per_identity : float
+            Percent identity threshold for reporting hits.
+        per_aln_len : float
+            Percent query coverage threshold for reporting hits.
+        max_hits : int
+            Maximum number of hits to report per query sequences.
+        tmp_dir : str
+            Directory to store temporary files.
+        output_dir : str
+            Directory to store blast results.
+        """
+        
+        self.logger.info('Creating DIAMOND database of query proteins (be patient!).')
+        diamond = Diamond(self.cpus)
+        query_diamond_db = os.path.join(output_dir, 'query_genes')
+        if high_mem:
+            diamond.make_database(query_gene_file, query_diamond_db, block_size=8)
+        else:
+            diamond.make_database(query_gene_file, query_diamond_db)
+        
+        self.logger.info('Creating DIAMOND database of target proteins (be patient!).')
+        target_diamond_db = os.path.join(output_dir, 'target_genes')
+        if high_mem:
+            diamond.make_database(target_gene_file, target_diamond_db, block_size=8)
+        else:
+            diamond.make_database(target_gene_file, target_diamond_db)
+
+        # blast query genes against target proteins
+        self.logger.info('Performing similarity sequence between query and target proteins (be patient!).')
+        query_hits_daa_file = os.path.join(output_dir, 'query_hits')
+        
+        if high_mem:
+            diamond.blastp(query_gene_file, target_diamond_db, evalue, per_identity, per_aln_len, max_hits, query_hits_daa_file, tmp_dir, chunk_size=1)
+        else:
+            diamond.blastp(query_gene_file, target_diamond_db, evalue, per_identity, per_aln_len, max_hits, query_hits_daa_file, tmp_dir)
+
+        if tmp_dir:
+            tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
+        else:
+            if os.path.isdir('/dev/shm'):
+                tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir='/dev/shm', delete=False)
+            else:
+                tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
+        tmp_query_hits_table.close()
+                
+        self.logger.info('Creating table with query hits.')
+        diamond.view(query_hits_daa_file + '.daa', tmp_query_hits_table.name)
+        
+        # get target genes hit by one or more query proteins
+        self.logger.info('Creating file with target proteins with similarity to query proteins.')
+        target_hit = set()
+        for line in open(tmp_query_hits_table.name):
+            line_split = line.split('\t')
+            target_hit.add(line_split[1])
+
+        target_genes_hits = os.path.join(output_dir, 'target_genes_hit.faa')
+        fout = open(target_genes_hits, 'w')
+        for seq_id, seq in seq_io.read_seq(target_gene_file):
+            if seq_id in target_hit:
+                fout.write('>' + seq_id + '\n')
+                fout.write(seq + '\n')
+        fout.close()
+        
+        self.logger.info('Identified %d target proteins to be used in reciprocal search.' % len(target_hit))
+        
+        # perform reciprocal blast
+        self.logger.info('Performing reciprocal similarity sequence between target and query proteins (be patient!).')
+        target_hits_daa_file = os.path.join(output_dir, 'target_hits')
+        
+        if high_mem:
+            diamond.blastp(target_genes_hits, query_diamond_db, evalue, per_identity, per_aln_len, max_hits, target_hits_daa_file, tmp_dir, chunk_size=1)
+        else:
+            diamond.blastp(target_genes_hits, query_diamond_db, evalue, per_identity, per_aln_len, max_hits, target_hits_daa_file, tmp_dir)
+
+        if tmp_dir:
+            tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
+        else:
+            if os.path.isdir('/dev/shm'):
+                tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir='/dev/shm', delete=False)
+            else:
+                tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
+        tmp_target_hits_table.close()
+                
+        self.logger.info('Creating table with reciprocal target hits.')
+        diamond.view(target_hits_daa_file + '.daa', tmp_target_hits_table.name)
+        
+        # combine hit tables and sort
+        os.system('cat %s >> %s' % (tmp_target_hits_table.name, tmp_query_hits_table.name))
+        os.remove(tmp_target_hits_table.name)
+        hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
+        self._sort_hit_table(tmp_query_hits_table.name, hits_table_file)
 
     def run(self, query_gene_files, 
                     target_gene_files,
@@ -250,44 +357,61 @@ class SimilaritySearch(object):
            
         # modify gene ids to include genome ids in order to ensure
         # all gene identifiers are unique across the set of genomes
-        self.logger.info('Appending genome identifiers to all gene identifiers.')
-        query_out_dir = os.path.join(output_dir, 'query_genes')
-        make_sure_path_exists(query_out_dir)
-        modified_query_gene_files = self._prefix_gene_identifiers(query_gene_files, 
-                                                                    keep_headers, 
-                                                                    query_out_dir)
-        
+        self.logger.info('Appending genome identifiers to query genes.')
         query_gene_file = os.path.join(output_dir, 'query_genes.faa')
-        concatenate_files(modified_query_gene_files, query_gene_file)
+        modified_query_gene_files = self._prefix_gene_identifiers(query_gene_files, 
+                                                                    keep_headers,
+                                                                    query_gene_file)
+        
+ 
             
         if query_gene_files == target_gene_files:
             target_gene_file = query_gene_file
         else:
-            target_out_dir = os.path.join(output_dir, 'target_genes')
-            make_sure_path_exists(target_out_dir)
+            self.logger.info('Appending genome identifiers to target genes.')
+            target_gene_file = os.path.join(output_dir, 'target_genes.faa')
             modified_target_gene_files = self._prefix_gene_identifiers(target_gene_files, 
                                                                         keep_headers, 
-                                                                        target_out_dir)
-
-            target_gene_file = os.path.join(output_dir, 'target_genes.faa')
-            concatenate_files(modified_target_gene_files, target_gene_file)
+                                                                        target_gene_file)
 
         if blastp:
-            self._run_blastp(query_gene_file, 
-                                target_gene_file, 
-                                evalue, 
-                                per_identity, 
-                                per_aln_len,
-                                len(target_gene_files) * 10,
-                                tmp_dir,
-                                output_dir)
+            if target_gene_file == query_gene_file:
+                self._run_self_blastp(query_gene_file, 
+                                        evalue, 
+                                        per_identity, 
+                                        per_aln_len,
+                                        len(target_gene_files) * 10,
+                                        tmp_dir,
+                                        output_dir)
+            else:
+                self._run_reciprocal_blasp(query_gene_file, 
+                                            target_gene_file, 
+                                            evalue, 
+                                            per_identity, 
+                                            per_aln_len,
+                                            len(target_gene_files) * 10,
+                                            high_mem,
+                                            tmp_dir,
+                                            output_dir)
         else:
-            self._run_diamond(query_gene_file, 
-                                target_gene_file, 
-                                evalue, 
-                                per_identity, 
-                                per_aln_len,
-                                len(target_gene_files) * 10,
-                                high_mem,
-                                tmp_dir,
-                                output_dir)
+            if target_gene_file == query_gene_file:
+                self._run_self_diamond(query_gene_file, 
+                                        evalue, 
+                                        per_identity, 
+                                        per_aln_len,
+                                        len(target_gene_files) * 10,
+                                        high_mem,
+                                        tmp_dir,
+                                        output_dir)
+
+            
+            else:
+                self._run_reciprocal_diamond(query_gene_file, 
+                                                target_gene_file, 
+                                                evalue, 
+                                                per_identity, 
+                                                per_aln_len,
+                                                len(target_gene_files) * 10,
+                                                high_mem,
+                                                tmp_dir,
+                                                output_dir)
