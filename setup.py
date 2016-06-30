@@ -22,6 +22,6 @@ setup(
     install_requires=[
         "numpy >= 1.8.0",
         "scipy >= 0.9.0",
-        "matplotlib >= 1.3.1"
+        "matplotlib >= 1.3.1",
         "biolib >= 0.0.24"],
 )
