@@ -172,7 +172,7 @@ class OptionsParser():
                 options.evalue, 
                 options.per_identity, 
                 options.per_aln_len,
-                options.high_mem,
+                True,
                 options.tmp_dir,
                 options.blastp,
                 options.keep_headers,
