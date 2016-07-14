@@ -1,7 +1,5 @@
 # CompareM
 
-<b>[This project is in active development, you are welcomed to use this software though it may be unstable.]</b>
-
 [![version status](https://img.shields.io/pypi/v/comparem.svg)](https://pypi.python.org/pypi/comparem)
 [![downloads](https://img.shields.io/pypi/dm/comparem.svg)](https://pypi.python.org/pypi/comparem)
 
