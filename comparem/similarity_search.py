@@ -131,10 +131,7 @@ class SimilaritySearch(object):
         if tmp_dir:
             tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
         else:
-            if os.path.isdir('/dev/shm'):
-                tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir='/dev/shm', delete=False)
-            else:
-                tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
+            tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
         tmp_hits_table.close()
 
         # blast all genes against the database
@@ -178,28 +175,40 @@ class SimilaritySearch(object):
         
         diamond_db = os.path.join(output_dir, 'query_genes')
         diamond = Diamond(self.cpus)
-        if high_mem:
-            diamond.make_database(query_gene_file, diamond_db, block_size=8)
-        else:
-            diamond.make_database(query_gene_file, diamond_db)
+        diamond.make_database(query_gene_file, diamond_db)
             
         # create flat hits table
         if tmp_dir:
             tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
         else:
-            if os.path.isdir('/dev/shm'):
-                tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir='/dev/shm', delete=False)
-            else:
-                tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
+            tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
         tmp_hits_table.close()
 
         # blast all genes against the database
         self.logger.info('Performing self similarity sequence between genomes (be patient!).')
 
         if high_mem:
-            diamond.blastp(query_gene_file, diamond_db, evalue, per_identity, per_aln_len, max_hits, tmp_hits_table.name, 'tab', tmp_dir, chunk_size=1)
+            diamond.blastp(query_gene_file, 
+                            diamond_db, 
+                            evalue, 
+                            per_identity, 
+                            per_aln_len, 
+                            max_hits, 
+                            tmp_hits_table.name, 
+                            'tab', 
+                            tmp_dir, 
+                            chunk_size=1, 
+                            block_size=8)
         else:
-            diamond.blastp(query_gene_file, diamond_db, evalue, per_identity, per_aln_len, max_hits, tmp_hits_table.name, 'tab', tmp_dir)
+            diamond.blastp(query_gene_file, 
+                            diamond_db, 
+                            evalue, 
+                            per_identity, 
+                            per_aln_len, 
+                            max_hits, 
+                            tmp_hits_table.name, 
+                            'tab', 
+                            tmp_dir)
 
         # sort hit table
         hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
@@ -240,17 +249,11 @@ class SimilaritySearch(object):
         self.logger.info('Creating DIAMOND database of query proteins (be patient!).')
         diamond = Diamond(self.cpus)
         query_diamond_db = os.path.join(output_dir, 'query_genes')
-        if high_mem:
-            diamond.make_database(query_gene_file, query_diamond_db, block_size=8)
-        else:
-            diamond.make_database(query_gene_file, query_diamond_db)
+        diamond.make_database(query_gene_file, query_diamond_db)
         
         self.logger.info('Creating DIAMOND database of target proteins (be patient!).')
         target_diamond_db = os.path.join(output_dir, 'target_genes')
-        if high_mem:
-            diamond.make_database(target_gene_file, target_diamond_db, block_size=8)
-        else:
-            diamond.make_database(target_gene_file, target_diamond_db)
+        diamond.make_database(target_gene_file, target_diamond_db)
 
         # blast query genes against target proteins
         self.logger.info('Performing similarity sequence between query and target proteins (be patient!).')
@@ -258,18 +261,33 @@ class SimilaritySearch(object):
         if tmp_dir:
             tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
         else:
-            if os.path.isdir('/dev/shm'):
-                tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir='/dev/shm', delete=False)
-            else:
-                tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
+            tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
         tmp_query_hits_table.close()
         
         query_hits_daa_file = os.path.join(output_dir, 'query_hits')
         
         if high_mem:
-            diamond.blastp(query_gene_file, target_diamond_db, evalue, per_identity, per_aln_len, max_hits, tmp_query_hits_table.name, 'tab', tmp_dir, chunk_size=1)
+            diamond.blastp(query_gene_file, 
+                            target_diamond_db, 
+                            evalue, 
+                            per_identity, 
+                            per_aln_len, 
+                            max_hits, 
+                            tmp_query_hits_table.name, 
+                            'tab', 
+                            tmp_dir, 
+                            chunk_size=1, 
+                            block_size=8)
         else:
-            diamond.blastp(query_gene_file, target_diamond_db, evalue, per_identity, per_aln_len, max_hits, tmp_query_hits_table.name, 'tab', tmp_dir)
+            diamond.blastp(query_gene_file, 
+                            target_diamond_db, 
+                            evalue, 
+                            per_identity, 
+                            per_aln_len, 
+                            max_hits, 
+                            tmp_query_hits_table.name, 
+                            'tab', 
+                            tmp_dir)
                 
         # get target genes hit by one or more query proteins
         self.logger.info('Creating file with target proteins with similarity to query proteins.')
@@ -294,16 +312,31 @@ class SimilaritySearch(object):
         if tmp_dir:
             tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
         else:
-            if os.path.isdir('/dev/shm'):
-                tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir='/dev/shm', delete=False)
-            else:
-                tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
+            tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
         tmp_target_hits_table.close()
         
         if high_mem:
-            diamond.blastp(target_genes_hits, query_diamond_db, evalue, per_identity, per_aln_len, max_hits, tmp_target_hits_table.name, 'tab', tmp_dir, chunk_size=1)
+            diamond.blastp(target_genes_hits, 
+                            query_diamond_db, 
+                            evalue, 
+                            per_identity, 
+                            per_aln_len, 
+                            max_hits, 
+                            tmp_target_hits_table.name, 
+                            'tab', 
+                            tmp_dir, 
+                            chunk_size=1, 
+                            block_size=8)
         else:
-            diamond.blastp(target_genes_hits, query_diamond_db, evalue, per_identity, per_aln_len, max_hits, tmp_target_hits_table.name, 'tab', tmp_dir)
+            diamond.blastp(target_genes_hits, 
+                            query_diamond_db, 
+                            evalue, 
+                            per_identity, 
+                            per_aln_len, 
+                            max_hits, 
+                            tmp_target_hits_table.name, 
+                            'tab', 
+                            tmp_dir)
                 
         # combine hit tables and sort
         os.system('cat %s >> %s' % (tmp_target_hits_table.name, tmp_query_hits_table.name))

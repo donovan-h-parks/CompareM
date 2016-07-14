@@ -449,6 +449,10 @@ class OptionsParser():
             root_dir = options.output_dir
             make_sure_path_exists(root_dir)
             
+            if options.query_files == options.target_files:
+                self.logger.error("The 'query_files' and 'target_files' arguments must be different.")
+                sys.exit()
+            
             if options.proteins:
                 if options.file_ext == 'fna':
                     self.logger.warning("Changing file extension from 'fna' to 'faa' since 'proteins' flag was given.")

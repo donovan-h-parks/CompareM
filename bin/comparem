@@ -341,7 +341,7 @@ if __name__ == '__main__':
     # heatmap_parser.add_argument('--dpi', type=int, default=600, help='desired DPI of output image')
     heatmap_parser.add_argument('--hierarchical_cluster', action='store_true', default=False, dest='cluster', help='perform hierarchical clustering on the values')
     heatmap_parser.add_argument('--silent', help="suppress output", action='store_true')
-    
+
     # get and check options
     args = None
     if(len(sys.argv) == 1 or sys.argv[1] == '-h' or sys.argv == '--help'):
