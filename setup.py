@@ -1,4 +1,4 @@
-from distutils.core import setup
+from setuptools import setup
 
 import os
 
@@ -20,8 +20,8 @@ setup(
     description='A toolbox for comparative genomics.',
     long_description=open('README.md').read(),
     install_requires=[
-        "numpy >= 1.8.0",
-        "scipy >= 0.9.0",
-        "matplotlib >= 1.3.1",
-        "biolib >= 0.0.26"],
+        "numpy>=1.8.0",
+        "scipy>=0.9.0",
+        "matplotlib>=1.3.1",
+        "biolib>=0.0.26"],
 )
