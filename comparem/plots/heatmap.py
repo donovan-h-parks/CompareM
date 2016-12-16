@@ -73,7 +73,7 @@ class Heatmap(AbstractPlot):
                     print fields
                     raise e
 
-        self.perc_ids = [[0,0,0],[0,0,0],[0,0,0]]
+        self.perc_ids = np_zeros([len(genomes), len(genomes)])
         self.perc_aln = np_zeros([len(genomes), len(genomes)])
         genome_to_index = {}
         self.genomes = [None] * len(genomes)
@@ -89,26 +89,15 @@ class Heatmap(AbstractPlot):
             except:
                 self.perc_ids[genome_to_index[g1]][genome_to_index[g2]] = 100.0 - data[g2][g1][0]
                 self.perc_aln[genome_to_index[g1], genome_to_index[g2]] = data[g2][g1][1]
-
-        print self.perc_ids
-        print self.perc_aln
-        print self.genomes
         
     def plotDendrogram(self, matrix, axis, clusteringThreshold, orientation):
-        print matrix
-        
-        print '1'
+
         d = dist.pdist(matrix)
-        print '2'
         linkage = cluster.linkage(dist.squareform(d), method='average', metric='cityblock')
-        print '3'
         dendrogram = cluster.dendrogram(linkage, orientation=orientation, link_color_func=lambda k: 'k')
-        print '4'
         index = cluster.fcluster(linkage, clusteringThreshold * max(linkage[:,2]), 'distance')
-        print '5'
         axis.set_xticks([])
         axis.set_yticks([])
-        print '6'
 
         return index, dendrogram['leaves']
 
@@ -157,14 +146,11 @@ class Heatmap(AbstractPlot):
         legendH = 0.05
 
         # plot dendrograms
-        print 'A'
         axisRowDendrogram = self.fig.add_axes([rowDendrogramX, rowDendrogramY, rowDendrogramW, rowDendrogramH], frame_on=False)
         ind1, leafIndex1 = self.plotDendrogram(matrix, axisRowDendrogram, clusteringThreshold, 'right')
 
         axisColDendrogram = self.fig.add_axes([colDendrogramX, colDendrogramY, colDendrogramW, colDendrogramH], frame_on=False)
         ind2, leafIndex2 = self.plotDendrogram(matrix.T, axisColDendrogram, clusteringThreshold, 'top')
-        
-        print 'B'
 
         # plot column clustering bars
         matrix = matrix[:,leafIndex2]
@@ -215,7 +201,6 @@ class Heatmap(AbstractPlot):
         #axisColourMap.set_title("Relative Abundance")
         colourBar.set_ticks([minValue, 0.5*(maxValue-minValue) + minValue, maxValue])
         colourBar.set_ticklabels(['%.1f' % (minValue*100.0) + '%', '%.1f' % ((0.5*(maxValue-minValue) + minValue)*100.0) + '%', '%.1f' % (maxValue*100.0) + '%'])
-
 
         for i in xrange(0, len(rowHeaders)):
             axisHeatmap.plot([-0.5, len(colHeaders)-0.5], [i-0.5,i-0.5], color='white', linestyle='-', linewidth=1)

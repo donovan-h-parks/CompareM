@@ -122,7 +122,7 @@ class Classify(object):
         # report top matches
         results_file = os.path.join(output_dir, 'classify.tsv')
         fout = open(results_file, 'w')
-        fout.write('Query Id\tTarget Id\tAAI\tOF')
+        fout.write('Query Id\tTarget Id\tAAI\tOF\tScore')
         if taxonomy:
             fout.write('\tTarget Taxonomy')
         fout.write('\n')
@@ -132,6 +132,10 @@ class Classify(object):
             for i in xrange(0, min(num_top_targets, len(cur_hits))):
                 data = [query_id] + cur_hits[i]
                 fout.write('%s\t%s\t%.2f\t%.2f' % tuple(data))
+                
+                aai = data[2]
+                of = data[3]
+                fout.write('\t%.2f' % (aai+of))
                 
                 target_id = cur_hits[i][0]
                 if target_id in taxonomy:

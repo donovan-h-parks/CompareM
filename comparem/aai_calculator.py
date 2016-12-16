@@ -118,16 +118,16 @@ class AAICalculator(object):
             Unique id of genome to obtained hits for.
         target_genome_id : str
             Unique id of genome to considered hits to.
-
+            
         Returns
         -------
-        dict : d[query_id] -> list with blast hit information
-           Hits from query genome meeting specified criteria.
+        dict : d[query_id] -> list of lists with blast hit information
+           Hits from query genome meeting specified criteria (can be multiple hits if equal bitscores).
         """
 
         # get valid hits for genome
         hits = {}
-        
+
         if query_genome_id not in offset_table:
             # proteins in query genome failed to hit any target proteins
             return hits
@@ -135,26 +135,18 @@ class AAICalculator(object):
         if target_genome_id not in offset_table[query_genome_id]:
             # proteins in query genome failed to hit any proteins in target genome
             return hits
-            
+  
         start_pos, end_pos = offset_table[query_genome_id][target_genome_id]
         hit_table_stream.seek(start_pos)
         while hit_table_stream.tell() < end_pos:
             hit = hit_table_stream.readline().split('\t')
 
             perc_iden = float(hit[4])
-            if perc_iden < per_identity_threshold:
-                continue
-                
             evalue = float(hit[12])
-            if evalue > evalue_threshold:
-                continue
 
             query_id = hit[0] + '~' + hit[1]
-            query_coverage = int(hit[9]) - int(hit[8])
+            query_coverage = int(hit[9]) - int(hit[8]) + 1
             per_aln_len = query_coverage * 100.0 / self.gene_lengths[query_id]
-            
-            if per_aln_len < per_aln_len_threshold:
-                continue
 
             target_genome = hit[2]
             target_id = target_genome + '~' + hit[3]
@@ -165,10 +157,12 @@ class AAICalculator(object):
 
             prev_hit = hits.get(query_id, None)
             if not prev_hit:
-                hits[query_id] = [target_id, perc_iden, per_aln_len, evalue, bitscore]
-            elif prev_hit[4] < bitscore:
+                hits[query_id] = [[target_id, perc_iden, per_aln_len, evalue, bitscore]]
+            elif bitscore > prev_hit[0][4]:
                 # for each gene, keep the hit with the highest bitscore
-                hits[query_id] = [target_id, perc_iden, per_aln_len, evalue, bitscore]
+                hits[query_id] = [[target_id, perc_iden, per_aln_len, evalue, bitscore]]
+            elif bitscore == prev_hit[0][4]:
+                hits[query_id].append([target_id, perc_iden, per_aln_len, evalue, bitscore])
 
         return hits
 
@@ -212,22 +206,34 @@ class AAICalculator(object):
             # report reciprocal best blast hits
             per_identity_hits = []
             for query_id, hit_stats in hits.iteritems():
-                target_id, per_identA, per_aln_lenA, evalueA, bitscoreA = hit_stats
-                if target_id in cur_hits and query_id == cur_hits[target_id][0]:
-                    _target_id, per_identB, per_aln_lenB, evalueB, bitscoreB = cur_hits[target_id]
+                bRBH = False
+                for query_hit in hit_stats:
+                    target_id, per_identA, per_aln_lenA, evalueA, bitscoreA = query_hit
+                    
+                    for target_hit in cur_hits.get(target_id, []):
+                        cur_target_id, per_identB, per_aln_lenB, evalueB, bitscoreB = target_hit
+                        if query_id != cur_target_id:
+                            continue
 
-                    # take average of statistics in both blast directions as
-                    # the results will be similar, but not identical
-                    per_ident = 0.5 * (per_identA + per_identB)
-                    per_identity_hits.append(per_ident)
+                        # take average of statistics in both blast directions as
+                        # the results will be similar, but not identical
+                        per_ident = 0.5 * (per_identA + per_identB)
+                        per_identity_hits.append(per_ident)
 
-                    per_aln_len = 0.5 * (per_aln_lenA + per_aln_lenB)
-                    evalue = 0.5 * (evalueA + evalueB)
-                    bitscore = 0.5 * (bitscoreA + bitscoreB)
+                        per_aln_len = 0.5 * (per_aln_lenA + per_aln_lenB)
+                        evalue = 0.5 * (evalueA + evalueB)
+                        bitscore = 0.5 * (bitscoreA + bitscoreB)
 
-                    if self.keep_rbhs:
-                        fout_stats.write('%s\t%s\t%.2f\t%.2f\t%.2g\t%.2f\n' % (query_id, target_id, per_ident, per_aln_len, evalue, bitscore))
+                        if self.keep_rbhs: 
+                            fout_stats.write('%s\t%s\t%.2f\t%.2f\t%.2g\t%.2f\n' % (query_id, target_id, per_ident, per_aln_len, evalue, bitscore))
 
+                        # keep only one reciprocal best hit per gene
+                        bRBH = True
+                        break
+                 
+                    if bRBH: # keep only one reciprocal best hit per gene
+                        break
+                                  
             mean_per_identity_hits = 0
             if len(per_identity_hits) > 0:
                 mean_per_identity_hits = mean(per_identity_hits)
