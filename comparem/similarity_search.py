@@ -195,7 +195,7 @@ class SimilaritySearch(object):
                             per_aln_len, 
                             max_hits, 
                             tmp_hits_table.name, 
-                            'tab', 
+                            'standard', 
                             tmp_dir, 
                             chunk_size=1, 
                             block_size=8)
@@ -207,7 +207,7 @@ class SimilaritySearch(object):
                             per_aln_len, 
                             max_hits, 
                             tmp_hits_table.name, 
-                            'tab', 
+                            'standard', 
                             tmp_dir)
 
         # sort hit table
@@ -323,7 +323,7 @@ class SimilaritySearch(object):
                             per_aln_len, 
                             max_hits, 
                             tmp_target_hits_table.name, 
-                            'tab', 
+                            'standard', 
                             tmp_dir, 
                             chunk_size=1, 
                             block_size=8)
@@ -335,7 +335,7 @@ class SimilaritySearch(object):
                             per_aln_len, 
                             max_hits, 
                             tmp_target_hits_table.name, 
-                            'tab', 
+                            'standard', 
                             tmp_dir)
                 
         # combine hit tables and sort
