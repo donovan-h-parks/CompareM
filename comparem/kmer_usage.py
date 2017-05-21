@@ -105,7 +105,7 @@ class KmerUsage(object):
 
         genome_id, kmer_usage = produced_data
 
-        consumer_data.kmer_set.update(kmer_usage.keys())
+        consumer_data.kmer_set.update(list(kmer_usage.keys()))
         consumer_data.genome_kmer_usage[genome_id] = kmer_usage
 
         return consumer_data

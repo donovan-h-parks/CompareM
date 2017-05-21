@@ -205,7 +205,7 @@ class AAICalculator(object):
 
             # report reciprocal best blast hits
             per_identity_hits = []
-            for query_id, hit_stats in hits.iteritems():
+            for query_id, hit_stats in hits.items():
                 bRBH = False
                 for query_hit in hit_stats:
                     target_id, per_identA, per_aln_lenA, evalueA, bitscoreA = query_hit
@@ -396,14 +396,14 @@ class AAICalculator(object):
         genome_id_lists = []
         query_genomes = list(query_genomes)
         target_genomes = list(target_genomes)
-        for i in xrange(0, len(query_genomes)):
+        for i in range(0, len(query_genomes)):
             genome_idI = query_genomes[i]
             
             if target_genomes:
                 genome_id_list = target_genomes
             else:
                 genome_id_list = []
-                for j in xrange(i + 1, len(query_genomes)):
+                for j in range(i + 1, len(query_genomes)):
                     genome_idJ = query_genomes[j]
                     genome_id_list.append(genome_idJ)
 

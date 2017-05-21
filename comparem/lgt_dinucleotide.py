@@ -96,7 +96,7 @@ class LgtDinucleotide(object):
         nucleotides = ['A', 'C', 'G', 'T']
         gene_di_mean = defaultdict(lambda: defaultdict(float))
         gene_di_std = defaultdict(lambda: defaultdict(float))
-        for gene_id, dinucleotides in gene_di_usage.iteritems():
+        for gene_id, dinucleotides in gene_di_usage.items():
             n1 = gene_n1[gene_id]
             n3 = gene_n3[gene_id]
             N = sum(dinucleotides.values())
@@ -133,11 +133,11 @@ class LgtDinucleotide(object):
 
         # calculate covariance matrix
         cov_matrix = []
-        for di_j in genome_di_bias.keys()[0:-1]:
+        for di_j in list(genome_di_bias.keys())[0:-1]:
             row = []
-            for di_k in genome_di_bias.keys()[0:-1]:
+            for di_k in list(genome_di_bias.keys())[0:-1]:
                 s = 0
-                for dinucleotides in gene_di_bias.values():
+                for dinucleotides in list(gene_di_bias.values()):
                     s += (dinucleotides[di_j] - genome_di_bias[di_j]) * (dinucleotides[di_k] - genome_di_bias[di_k])
                 s /= (len(gene_di_bias) - 1)
 
@@ -147,9 +147,9 @@ class LgtDinucleotide(object):
 
         # calculate Hotelling's T^2-statistic for each gene
         T2 = {}
-        for gene_id, dinucleotides in gene_di_bias.iteritems():
+        for gene_id, dinucleotides in gene_di_bias.items():
             x = []
-            for di in genome_di_bias.keys()[0:-1]:
+            for di in list(genome_di_bias.keys())[0:-1]:
                 x.append(dinucleotides[di] - genome_di_bias[di])
             x = array(x)
 
@@ -175,7 +175,7 @@ class LgtDinucleotide(object):
 
         dist = {}
         genome_sum_di = sum(genome_di_usage.values())
-        for gene_id, dinucleotides in gene_di_usage.iteritems():
+        for gene_id, dinucleotides in gene_di_usage.items():
             d = 0
             gene_sum_di = sum(dinucleotides.values())
             for di in genome_di_usage:
@@ -183,11 +183,11 @@ class LgtDinucleotide(object):
             dist[gene_id] = [d]
 
         # model all distances as a normal distribution
-        m = mean(dist.values())
-        s = std(dist.values())
+        m = mean(list(dist.values()))
+        s = std(list(dist.values()))
 
         # calculate standard deviations from the mean
-        for gene_id, d in dist.iteritems():
+        for gene_id, d in dist.items():
             dist[gene_id].append((d - m) / s)
 
         return dist
@@ -212,10 +212,10 @@ class LgtDinucleotide(object):
         genome_n1 = defaultdict(int)
         genome_n3 = defaultdict(int)
         gc = {}
-        for gene_id, seq in seqs.iteritems():
+        for gene_id, seq in seqs.items():
             gc[gene_id] = seq_tk.gc(seq)
 
-            for i in xrange(2, len(seq) - 2, 3):
+            for i in range(2, len(seq) - 2, 3):
                 dinucleotide = seq[i:i + 2].upper()
                 if 'N' not in dinucleotide:
                     gene_di_usage[gene_id][dinucleotide] += 1
@@ -241,7 +241,7 @@ class LgtDinucleotide(object):
 
         # report dinucleotide usage of each gene
         di_set_sorted = sorted(genome_di_usage.keys())
-        gene_ids_sorted = sorted(t2_stats.items(), key=operator.itemgetter(1), reverse=True)
+        gene_ids_sorted = sorted(list(t2_stats.items()), key=operator.itemgetter(1), reverse=True)
 
         output_file = os.path.join(self.output_dir, genome_id + '.di_usage.tsv')
         fout = open(output_file, 'w')
@@ -251,9 +251,9 @@ class LgtDinucleotide(object):
             fout.write('\t' + di)
         fout.write('\n')
 
-        genome_gc = seq_tk.gc(''.join(seqs.values()))
+        genome_gc = seq_tk.gc(''.join(list(seqs.values())))
         genome_sum_di = sum(genome_di_usage.values())
-        fout.write('%s\t%.2f\t%d\t%d' % ('<complete genome>', genome_gc * 100.0, sum([len(x) for x in seqs.values()]), genome_sum_di))
+        fout.write('%s\t%.2f\t%d\t%d' % ('<complete genome>', genome_gc * 100.0, sum([len(x) for x in list(seqs.values())]), genome_sum_di))
         fout.write('\t%s\t%s\t%.1f\t%.1f' % ('na', 'na', 0, 0))
         for di in di_set_sorted:
             fout.write('\t%.2f' % (genome_di_usage.get(di, 0) * 100.0 / genome_sum_di))

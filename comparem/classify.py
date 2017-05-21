@@ -127,9 +127,9 @@ class Classify(object):
             fout.write('\tTarget Taxonomy')
         fout.write('\n')
              
-        for query_id, cur_hits in hits.iteritems():
+        for query_id, cur_hits in hits.items():
             cur_hits.sort(key=lambda x: x[1], reverse=True)
-            for i in xrange(0, min(num_top_targets, len(cur_hits))):
+            for i in range(0, min(num_top_targets, len(cur_hits))):
                 data = [query_id] + cur_hits[i]
                 fout.write('%s\t%s\t%.2f\t%.2f' % tuple(data))
                 

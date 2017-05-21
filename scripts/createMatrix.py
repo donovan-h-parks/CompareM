@@ -59,12 +59,12 @@ class MyClass(object):
       fout = open(aaiMatrix, 'w')
 
       fout.write('\t' + '\t'.join(sampleIds) + '\n')
-      for i in xrange(0, len(sampleIds)):
+      for i in range(0, len(sampleIds)):
         sampleIdI = sampleIds[i]
         row = matrix[sampleIdI]
 
         fout.write(sampleIdI)
-        for j in xrange(0, len(sampleIds)):
+        for j in range(0, len(sampleIds)):
           sampleIdJ = sampleIds[j]
           if i == j:
             fout.write('\t0')
@@ -77,12 +77,12 @@ class MyClass(object):
       fout = open(orthologyMatrix, 'w')
 
       fout.write('\t' + '\t'.join(sampleIds) + '\n')
-      for i in xrange(0, len(sampleIds)):
+      for i in range(0, len(sampleIds)):
         sampleIdI = sampleIds[i]
         row = matrix[sampleIdI]
 
         fout.write(sampleIdI)
-        for j in xrange(0, len(sampleIds)):
+        for j in range(0, len(sampleIds)):
           sampleIdJ = sampleIds[j]
           if i == j:
             fout.write('\t1')
@@ -92,8 +92,8 @@ class MyClass(object):
       fout.close()
 
 if __name__ == '__main__':
-    print __prog_name__ + ' v' + __version__ + ': ' + __prog_desc__
-    print '  by ' + __author__ + ' (' + __email__ + ')' + '\n'
+    print(__prog_name__ + ' v' + __version__ + ': ' + __prog_desc__)
+    print('  by ' + __author__ + ' (' + __email__ + ')' + '\n')
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('aai_summary_file', help='file indicating AAI between all pairs of genomes')
@@ -106,7 +106,7 @@ if __name__ == '__main__':
         myClass = MyClass()
         myClass.run(args.aai_summary_file, args.aai_matrix, args.orthology_matrix)
     except SystemExit:
-        print "\nControlled exit resulting from an unrecoverable error or warning."
+        print("\nControlled exit resulting from an unrecoverable error or warning.")
     except:
-        print "\nUnexpected error:", sys.exc_info()[0]
+        print("\nUnexpected error:", sys.exc_info()[0])
         raise

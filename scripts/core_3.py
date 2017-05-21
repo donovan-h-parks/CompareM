@@ -32,16 +32,16 @@ for f in os.listdir('.'):
         elif genome_id_b == 'bathy.b10.gc_47.genes':
           primary_genes.add(gene_b)
 
-print len(primary_genes)
+print(len(primary_genes))
 core = 0
 for gene_id in primary_genes:
   gene_list = genes[gene_id]
   if len(gene_list) == 2:
     if gene_list[1] in genes[gene_list[0]]:
-      print '%s\t%s\t%s' % (gene_id, gene_list[0], gene_list[1])
+      print('%s\t%s\t%s' % (gene_id, gene_list[0], gene_list[1]))
       core += 1
 
   if len(gene_list) > 2:
-    print 'what?'
+    print('what?')
 
-print core
+print(core)
