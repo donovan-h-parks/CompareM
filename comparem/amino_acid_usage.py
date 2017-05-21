@@ -62,7 +62,7 @@ class AminoAcidUsage(object):
         """
         aa_usage = defaultdict(int)
 
-        for _seqId, seq in seqs.iteritems():
+        for _seqId, seq in seqs.items():
             for aa in seq:
                 if aa != '*':
                     aa = aa.upper()
@@ -120,7 +120,7 @@ class AminoAcidUsage(object):
 
         genome_id, aa_usage = produced_data
 
-        consumer_data.aa_set.update(aa_usage.keys())
+        consumer_data.aa_set.update(list(aa_usage.keys()))
         consumer_data.genome_aa_usage[genome_id] = aa_usage
 
         return consumer_data

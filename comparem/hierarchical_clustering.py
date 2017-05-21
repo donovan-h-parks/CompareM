@@ -15,7 +15,7 @@
 #                                                                             #
 ###############################################################################
 
-from __future__ import division
+
 
 import sys
 import logging
@@ -97,9 +97,9 @@ class HierarchicalCluster(object):
         genome_labels.append(genome_ids.pop())
  
         diss_vector = []
-        for i in xrange(0, len(genome_labels)):
+        for i in range(0, len(genome_labels)):
             genome_idA = genome_labels[i]
-            for j in xrange(i+1, len(genome_labels)):
+            for j in range(i+1, len(genome_labels)):
                 genome_idB = genome_labels[j]
                 diss_vector.append(upper_triangle[genome_idA][genome_idB])
         

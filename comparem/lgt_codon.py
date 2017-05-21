@@ -68,7 +68,7 @@ class LgtCodon(object):
 
         dist = {}
         genome_sum_codon = sum(genome_codon_usage.values())
-        for gene_id, codon in gene_codon_usage.iteritems():
+        for gene_id, codon in gene_codon_usage.items():
             d = 0
             gene_sum_codon = sum(codon.values())
             for di in genome_codon_usage:
@@ -76,11 +76,11 @@ class LgtCodon(object):
             dist[gene_id] = [d]
 
         # model all distances as a normal distribution
-        m = mean(dist.values())
-        s = std(dist.values())
+        m = mean(list(dist.values()))
+        s = std(list(dist.values()))
 
         # calculate standard deviations from the mean
-        for gene_id, d in dist.iteritems():
+        for gene_id, d in dist.items():
             dist[gene_id].append((d - m) / s)
 
         return dist
@@ -100,10 +100,10 @@ class LgtCodon(object):
         gene_codon_usage = defaultdict(lambda: defaultdict(int))
         genome_codon_usage = defaultdict(int)
         gc = {}
-        for gene_id, seq in seqs.iteritems():
+        for gene_id, seq in seqs.items():
             gc[gene_id] = seq_tk.gc(seq)
 
-            for i in xrange(0, len(seq) - 3, 3):
+            for i in range(0, len(seq) - 3, 3):
                 codon = seq[i:i + 3].upper()
                 if 'N' not in codon:
                     gene_codon_usage[gene_id][codon] += 1
@@ -114,7 +114,7 @@ class LgtCodon(object):
 
         # report dinucleotide usage of each gene
         codon_set_sorted = sorted(genome_codon_usage.keys())
-        gene_ids_sorted = sorted(manhattan_dist.items(), key=operator.itemgetter(1), reverse=True)
+        gene_ids_sorted = sorted(list(manhattan_dist.items()), key=operator.itemgetter(1), reverse=True)
 
         output_file = os.path.join(self.output_dir, genome_id + '.codon_usage.tsv')
         fout = open(output_file, 'w')
@@ -124,9 +124,9 @@ class LgtCodon(object):
             fout.write('\t' + di)
         fout.write('\n')
 
-        genome_gc = seq_tk.gc(''.join(seqs.values()))
+        genome_gc = seq_tk.gc(''.join(list(seqs.values())))
         genome_sum_codon = sum(genome_codon_usage.values())
-        fout.write('%s\t%.2f\t%d\t%d' % ('<complete genome>', genome_gc * 100.0, sum([len(x) for x in seqs.values()]), genome_sum_codon))
+        fout.write('%s\t%.2f\t%d\t%d' % ('<complete genome>', genome_gc * 100.0, sum([len(x) for x in list(seqs.values())]), genome_sum_codon))
         fout.write('\t%.1f\t%.1f' % (0, 0))
         for di in codon_set_sorted:
             fout.write('\t%.2f' % (genome_codon_usage.get(di, 0) * 100.0 / genome_sum_codon))

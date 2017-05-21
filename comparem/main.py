@@ -113,11 +113,11 @@ class OptionsParser():
         fout.write('\n')
 
         totals = defaultdict(int)
-        for genome_id, features in genome_usage.iteritems():
+        for genome_id, features in genome_usage.items():
             for feature in sorted_feature_set:
                 totals[genome_id] += features.get(feature, 0)
 
-        for genome_id, features in genome_usage.iteritems():
+        for genome_id, features in genome_usage.items():
             fout.write(genome_id)
 
             for feature in sorted_feature_set:
@@ -149,7 +149,7 @@ class OptionsParser():
         # write gene calling summary
         fout = open(os.path.join(options.output_dir, 'call_genes.summary.tsv'), 'w')
         fout.write('Genome Id\tSelected translation table\tTable 4 coding density\tTable 11 coding density\n')
-        for genome_id, stats in summary_stats.iteritems():
+        for genome_id, stats in summary_stats.items():
             fout.write('%s\t%d\t%.2f%%\t%.2f%%\n' % (genome_id,
                                                      stats.best_translation_table,
                                                      stats.coding_density_4,
@@ -267,7 +267,7 @@ class OptionsParser():
                     fout.write('\t' + codon + ': avg. seq. length')
             fout.write('\n')
 
-            for genome_id, codons in genome_codon_usage.iteritems():
+            for genome_id, codons in genome_codon_usage.items():
                 fout.write(genome_id)
 
                 for codon in codon_set:
@@ -349,8 +349,8 @@ class OptionsParser():
             # in pairwise fashion
             fout.write('Genome A\tGenome B\tDissimilarity\n')
             condensed_idx = lambda i,j,n: n*j - j*(j+1)/2 + i - 1 - j
-            for i in xrange(1, len(genome_ids)):
-                for j in xrange(i):
+            for i in range(1, len(genome_ids)):
+                for j in range(i):
                     fout.write('%s\t%s\t%f\n' % (genome_ids[i], genome_ids[j], d[condensed_idx(i, j, len(genome_ids))]))
         else:
             # write out full dissimilarity matrix
@@ -361,7 +361,7 @@ class OptionsParser():
             
             for i, genome_id in enumerate(genome_ids):
                 fout.write(genome_id)
-                for j in xrange(len(genome_ids)):
+                for j in range(len(genome_ids)):
                     fout.write('\t%f' % ds[i,j])
                 fout.write('\n')
         

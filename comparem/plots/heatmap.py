@@ -15,7 +15,7 @@
 #                                                                             #
 ###############################################################################
 
-from __future__ import division
+
 
 import re
 from itertools import permutations
@@ -69,8 +69,8 @@ class Heatmap(AbstractPlot):
                 except KeyError:
                     data[fields[0]] = {}
                     data[fields[0]][fields[2]] = [float(fields[5]), float(fields[7])]
-                except IndexError, e:
-                    print fields
+                except IndexError as e:
+                    print(fields)
                     raise e
 
         self.perc_ids = np_zeros([len(genomes), len(genomes)])
@@ -189,10 +189,10 @@ class Heatmap(AbstractPlot):
         axisHeatmap.set_yticks([])
 
         # row and column labels
-        for i in xrange(0, len(rowHeaders)):
+        for i in range(0, len(rowHeaders)):
             axisHeatmap.text(matrix.shape[1] - 0.5, i, '  ' + rowHeaders[leafIndex1[i]], horizontalalignment="left")
 
-        for i in xrange(0, len(colHeaders)):
+        for i in range(0, len(colHeaders)):
             axisHeatmap.text(i, -0.5, '  ' + colHeaders[leafIndex2[i]], rotation = 270, verticalalignment="top")
 
         # plot colour map legend
@@ -202,10 +202,10 @@ class Heatmap(AbstractPlot):
         colourBar.set_ticks([minValue, 0.5*(maxValue-minValue) + minValue, maxValue])
         colourBar.set_ticklabels(['%.1f' % (minValue*100.0) + '%', '%.1f' % ((0.5*(maxValue-minValue) + minValue)*100.0) + '%', '%.1f' % (maxValue*100.0) + '%'])
 
-        for i in xrange(0, len(rowHeaders)):
+        for i in range(0, len(rowHeaders)):
             axisHeatmap.plot([-0.5, len(colHeaders)-0.5], [i-0.5,i-0.5], color='white', linestyle='-', linewidth=1)
 
-        for i in xrange(0, len(colHeaders)):
+        for i in range(0, len(colHeaders)):
             axisHeatmap.plot([i-0.5, i-0.5], [-0.5, len(rowHeaders)-0.5], color='white', linestyle='-', linewidth=1)
 
         self.fig.tight_layout()

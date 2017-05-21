@@ -54,7 +54,7 @@ class PCoA:
                 matrix[genomeB][genomeA] = aai
 
         data = np.array([])
-        sample_ids = matrix.keys()
+        sample_ids = list(matrix.keys())
         for i, sample_idI in enumerate(sample_ids):
             row = []
             for j, sample_idJ in enumerate(sample_ids):
@@ -74,7 +74,7 @@ class PCoA:
         # coords = lle.fit(data).embedding_
         # print lle.reconstruction_error_
 
-        print '  Stress of metric MDS embedding: %.2f' % mds.stress_
+        print('  Stress of metric MDS embedding: %.2f' % mds.stress_)
 
         plt.subplots_adjust(bottom=0.1)
         plt.scatter(

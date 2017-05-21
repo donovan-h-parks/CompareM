@@ -71,21 +71,21 @@ class CodonUsage(object):
 
         codon_usage = defaultdict(int)
         gene_length = defaultdict(list)
-        for _seq_id, seq in seqs.iteritems():
+        for _seq_id, seq in seqs.items():
             if self.stop_codon_only:
                 codon = seq[-3:].upper()
                 if self.keep_ambiguous or 'N' not in codon:
                     codon_usage[codon] += 1
                     gene_length[codon].append(len(seq))
             else:
-                for i in xrange(0, len(seq) - 3, 3):
+                for i in range(0, len(seq) - 3, 3):
                     codon = seq[i:i + 3].upper()
                     if self.keep_ambiguous or 'N' not in codon:
                         codon_usage[codon] += 1
 
         # get average gene length for each stop codon
         if gene_length:
-            for codon, seq_lens in gene_length.iteritems():
+            for codon, seq_lens in gene_length.items():
                 gene_length[codon] = mean(seq_lens)
 
         return codon_usage, gene_length
@@ -155,7 +155,7 @@ class CodonUsage(object):
 
         genome_id, codon_usage, mean_gene_length = produced_data
 
-        consumer_data.codon_set.update(codon_usage.keys())
+        consumer_data.codon_set.update(list(codon_usage.keys()))
         consumer_data.genome_codon_usage[genome_id] = codon_usage
         consumer_data.mean_gene_length[genome_id] = mean_gene_length
 
