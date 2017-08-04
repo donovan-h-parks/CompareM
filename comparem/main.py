@@ -138,13 +138,18 @@ class OptionsParser():
 
     def call_genes(self, options):
         """Call genes command"""
-        
+
         make_sure_path_exists(options.output_dir)
         
         genome_files = self._input_files(options.input_genomes, options.file_ext)
 
         prodigal = Prodigal(options.cpus, not options.silent)
-        summary_stats = prodigal.run(genome_files, options.output_dir, False, options.force_table, False)
+        summary_stats = prodigal.run(genome_files, 
+                                        options.output_dir, 
+                                        called_genes=False, 
+                                        translation_table=options.force_table, 
+                                        meta=False,
+                                        closed_ends=True)
 
         # write gene calling summary
         fout = open(os.path.join(options.output_dir, 'call_genes.summary.tsv'), 'w')
@@ -175,6 +180,7 @@ class OptionsParser():
                 True,
                 options.tmp_dir,
                 options.blastp,
+                options.sensitive,
                 options.keep_headers,
                 options.output_dir)
 

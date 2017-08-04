@@ -148,6 +148,7 @@ class SimilaritySearch(object):
                                 per_identity, 
                                 per_aln_len,
                                 max_hits,
+                                sensitive,
                                 high_mem,
                                 tmp_dir,
                                 output_dir):
@@ -193,7 +194,8 @@ class SimilaritySearch(object):
                             evalue, 
                             per_identity, 
                             per_aln_len, 
-                            max_hits, 
+                            max_hits,
+                            sensitive,
                             tmp_hits_table.name, 
                             'standard', 
                             tmp_dir, 
@@ -205,7 +207,8 @@ class SimilaritySearch(object):
                             evalue, 
                             per_identity, 
                             per_aln_len, 
-                            max_hits, 
+                            max_hits,
+                            sensitive,
                             tmp_hits_table.name, 
                             'standard', 
                             tmp_dir)
@@ -221,6 +224,7 @@ class SimilaritySearch(object):
                                         per_identity, 
                                         per_aln_len,
                                         max_hits,
+                                        sensitive,
                                         high_mem,
                                         tmp_dir,
                                         output_dir):
@@ -272,9 +276,10 @@ class SimilaritySearch(object):
                             evalue, 
                             per_identity, 
                             per_aln_len, 
-                            max_hits, 
+                            max_hits,
+                            sensitive,
                             tmp_query_hits_table.name, 
-                            'tab', 
+                            'standard', 
                             tmp_dir, 
                             chunk_size=1, 
                             block_size=8)
@@ -284,9 +289,10 @@ class SimilaritySearch(object):
                             evalue, 
                             per_identity, 
                             per_aln_len, 
-                            max_hits, 
+                            max_hits,
+                            sensitive,
                             tmp_query_hits_table.name, 
-                            'tab', 
+                            'standard', 
                             tmp_dir)
                 
         # get target genes hit by one or more query proteins
@@ -321,7 +327,8 @@ class SimilaritySearch(object):
                             evalue, 
                             per_identity, 
                             per_aln_len, 
-                            max_hits, 
+                            max_hits,
+                            sensitive,
                             tmp_target_hits_table.name, 
                             'standard', 
                             tmp_dir, 
@@ -333,7 +340,8 @@ class SimilaritySearch(object):
                             evalue, 
                             per_identity, 
                             per_aln_len, 
-                            max_hits, 
+                            max_hits,
+                            sensitive,
                             tmp_target_hits_table.name, 
                             'standard', 
                             tmp_dir)
@@ -352,6 +360,7 @@ class SimilaritySearch(object):
                     high_mem,
                     tmp_dir,
                     blastp,
+                    sensitive,
                     keep_headers,
                     output_dir):
         """Perform similarity search of query genes against target genes.
@@ -371,7 +380,9 @@ class SimilaritySearch(object):
         tmp_dir : str
             Directory to store temporary files.
         blastp : boolean
-            If True blasp-fast is used instead of DIAMOND.
+            If True, blasp-fast is used instead of DIAMOND.
+        sensitive : boolean
+            If True, the sensitive mode of DIAMOND is used.
         keep_headers : boolean
             If True, indicates FASTA headers already have the format <genome_id>~<gene_id>.
         output_dir : str
@@ -407,7 +418,9 @@ class SimilaritySearch(object):
                                         tmp_dir,
                                         output_dir)
             else:
-                self._run_reciprocal_blasp(query_gene_file, 
+                self.logger.info('NOT YET IMPLEMENTED!')
+                sys.exit()
+                self._run_reciprocal_blastp(query_gene_file, 
                                             target_gene_file, 
                                             evalue, 
                                             per_identity, 
@@ -423,6 +436,7 @@ class SimilaritySearch(object):
                                         per_identity, 
                                         per_aln_len,
                                         len(target_gene_files) * 10,
+                                        sensitive,
                                         high_mem,
                                         tmp_dir,
                                         output_dir)
@@ -435,6 +449,7 @@ class SimilaritySearch(object):
                                                 per_identity, 
                                                 per_aln_len,
                                                 len(target_gene_files) * 10,
+                                                sensitive,
                                                 high_mem,
                                                 tmp_dir,
                                                 output_dir)

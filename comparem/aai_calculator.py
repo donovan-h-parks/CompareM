@@ -142,11 +142,16 @@ class AAICalculator(object):
             hit = hit_table_stream.readline().split('\t')
 
             perc_iden = float(hit[4])
+            if perc_iden < per_identity_threshold:
+                continue
+                
             evalue = float(hit[12])
 
             query_id = hit[0] + '~' + hit[1]
             query_coverage = int(hit[9]) - int(hit[8]) + 1
             per_aln_len = query_coverage * 100.0 / self.gene_lengths[query_id]
+            if per_aln_len < per_aln_len_threshold:
+                continue
 
             target_genome = hit[2]
             target_id = target_genome + '~' + hit[3]
