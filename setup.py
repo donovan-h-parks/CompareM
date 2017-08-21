@@ -18,7 +18,6 @@ setup(
     url='http://pypi.python.org/pypi/comparem/',
     license='GPL3',
     description='A toolbox for comparative genomics.',
-    long_description=open('README.md').read(),
     install_requires=[
         "numpy>=1.8.0",
         "scipy>=0.9.0",
