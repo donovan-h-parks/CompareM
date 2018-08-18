@@ -28,6 +28,7 @@ import subprocess
 import logging
 import tempfile
 import shutil
+import platform
 
 import biolib.seq_io as seq_io
 from biolib.common import concatenate_files, remove_extension, make_sure_path_exists
@@ -90,8 +91,13 @@ class SimilaritySearch(object):
         """
         
         self.logger.info('Sorting table with hits (be patient!).')
-        os.system("LC_ALL=C sed -i 's/~/\t/g' %s" % input_hit_table)
-        os.system("LC_ALL=C sort --parallel=8 -o %s -k1,1 -k3,3 %s" % (input_hit_table, input_hit_table))
+        if platform.system() == 'Darwin':
+           os.system("LC_ALL=C sed -i '' 's/~/\t/g' %s" % input_hit_table)
+           os.system("LC_ALL=C gsort --parallel=8 -o %s -k1,1 -k3,3 %s" % (input_hit_table, input_hit_table))
+        else:
+           os.system("LC_ALL=C sed -i 's/~/\t/g' %s" % input_hit_table)
+           os.system("LC_ALL=C sort --parallel=8 -o %s -k1,1 -k3,3 %s" % (input_hit_table, input_hit_table))
+
         os.system('mv %s %s' % (input_hit_table, output_hit_table))
      
     def _run_self_blastp(self, query_gene_file, 

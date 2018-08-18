@@ -62,7 +62,7 @@ class AminoAcidUsage(object):
         """
         aa_usage = defaultdict(int)
 
-        for _seqId, seq in seqs.iteritems():
+        for _seqId, seq in seqs.items():
             for aa in seq:
                 if aa != '*':
                     aa = aa.upper()

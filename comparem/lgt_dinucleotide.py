@@ -96,7 +96,7 @@ class LgtDinucleotide(object):
         nucleotides = ['A', 'C', 'G', 'T']
         gene_di_mean = defaultdict(lambda: defaultdict(float))
         gene_di_std = defaultdict(lambda: defaultdict(float))
-        for gene_id, dinucleotides in gene_di_usage.iteritems():
+        for gene_id, dinucleotides in gene_di_usage.items():
             n1 = gene_n1[gene_id]
             n3 = gene_n3[gene_id]
             N = sum(dinucleotides.values())
@@ -147,7 +147,7 @@ class LgtDinucleotide(object):
 
         # calculate Hotelling's T^2-statistic for each gene
         T2 = {}
-        for gene_id, dinucleotides in gene_di_bias.iteritems():
+        for gene_id, dinucleotides in gene_di_bias.items():
             x = []
             for di in genome_di_bias.keys()[0:-1]:
                 x.append(dinucleotides[di] - genome_di_bias[di])
@@ -175,7 +175,7 @@ class LgtDinucleotide(object):
 
         dist = {}
         genome_sum_di = sum(genome_di_usage.values())
-        for gene_id, dinucleotides in gene_di_usage.iteritems():
+        for gene_id, dinucleotides in gene_di_usage.items():
             d = 0
             gene_sum_di = sum(dinucleotides.values())
             for di in genome_di_usage:
@@ -187,7 +187,7 @@ class LgtDinucleotide(object):
         s = std(dist.values())
 
         # calculate standard deviations from the mean
-        for gene_id, d in dist.iteritems():
+        for gene_id, d in dist.items():
             dist[gene_id].append((d - m) / s)
 
         return dist
@@ -212,7 +212,7 @@ class LgtDinucleotide(object):
         genome_n1 = defaultdict(int)
         genome_n3 = defaultdict(int)
         gc = {}
-        for gene_id, seq in seqs.iteritems():
+        for gene_id, seq in seqs.items():
             gc[gene_id] = seq_tk.gc(seq)
 
             for i in xrange(2, len(seq) - 2, 3):

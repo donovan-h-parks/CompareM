@@ -68,7 +68,7 @@ class LgtCodon(object):
 
         dist = {}
         genome_sum_codon = sum(genome_codon_usage.values())
-        for gene_id, codon in gene_codon_usage.iteritems():
+        for gene_id, codon in gene_codon_usage.items():
             d = 0
             gene_sum_codon = sum(codon.values())
             for di in genome_codon_usage:
@@ -80,7 +80,7 @@ class LgtCodon(object):
         s = std(dist.values())
 
         # calculate standard deviations from the mean
-        for gene_id, d in dist.iteritems():
+        for gene_id, d in dist.items():
             dist[gene_id].append((d - m) / s)
 
         return dist
@@ -100,7 +100,7 @@ class LgtCodon(object):
         gene_codon_usage = defaultdict(lambda: defaultdict(int))
         genome_codon_usage = defaultdict(int)
         gc = {}
-        for gene_id, seq in seqs.iteritems():
+        for gene_id, seq in seqs.items():
             gc[gene_id] = seq_tk.gc(seq)
 
             for i in xrange(0, len(seq) - 3, 3):

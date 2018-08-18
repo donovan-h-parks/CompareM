@@ -113,11 +113,11 @@ class OptionsParser():
         fout.write('\n')
 
         totals = defaultdict(int)
-        for genome_id, features in genome_usage.iteritems():
+        for genome_id, features in genome_usage.items():
             for feature in sorted_feature_set:
                 totals[genome_id] += features.get(feature, 0)
 
-        for genome_id, features in genome_usage.iteritems():
+        for genome_id, features in genome_usage.items():
             fout.write(genome_id)
 
             for feature in sorted_feature_set:
@@ -154,7 +154,7 @@ class OptionsParser():
         # write gene calling summary
         fout = open(os.path.join(options.output_dir, 'call_genes.summary.tsv'), 'w')
         fout.write('Genome Id\tSelected translation table\tTable 4 coding density\tTable 11 coding density\n')
-        for genome_id, stats in summary_stats.iteritems():
+        for genome_id, stats in summary_stats.items():
             fout.write('%s\t%d\t%.2f%%\t%.2f%%\n' % (genome_id,
                                                      stats.best_translation_table,
                                                      stats.coding_density_4,
@@ -273,7 +273,7 @@ class OptionsParser():
                     fout.write('\t' + codon + ': avg. seq. length')
             fout.write('\n')
 
-            for genome_id, codons in genome_codon_usage.iteritems():
+            for genome_id, codons in genome_codon_usage.items():
                 fout.write(genome_id)
 
                 for codon in codon_set:
