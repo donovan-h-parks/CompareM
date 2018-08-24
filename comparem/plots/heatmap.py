@@ -16,6 +16,7 @@
 ###############################################################################
 
 from __future__ import division
+from __future__ import print_function
 
 import re
 from itertools import permutations
@@ -69,8 +70,8 @@ class Heatmap(AbstractPlot):
                 except KeyError:
                     data[fields[0]] = {}
                     data[fields[0]][fields[2]] = [float(fields[5]), float(fields[7])]
-                except IndexError, e:
-                    print fields
+                except IndexError as e:
+                    print(fields)
                     raise e
 
         self.perc_ids = np_zeros([len(genomes), len(genomes)])

@@ -19,6 +19,8 @@
 #                                                                             #
 ###############################################################################
 
+from __future__ import print_function
+
 import logging
 from collections import defaultdict
 
@@ -74,7 +76,7 @@ class PCoA:
         # coords = lle.fit(data).embedding_
         # print lle.reconstruction_error_
 
-        print '  Stress of metric MDS embedding: %.2f' % mds.stress_
+        print('  Stress of metric MDS embedding: %.2f' % mds.stress_)
 
         plt.subplots_adjust(bottom=0.1)
         plt.scatter(
