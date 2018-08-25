@@ -17,6 +17,8 @@
 #                                                                             #
 ###############################################################################
 
+from __future__ import print_function
+
 __prog_name__ = 'createMatrix'
 __prog_desc__ = 'create matrix of AAI results'
 
@@ -92,8 +94,8 @@ class MyClass(object):
       fout.close()
 
 if __name__ == '__main__':
-    print __prog_name__ + ' v' + __version__ + ': ' + __prog_desc__
-    print '  by ' + __author__ + ' (' + __email__ + ')' + '\n'
+    print(__prog_name__ + ' v' + __version__ + ': ' + __prog_desc__)
+    print('  by ' + __author__ + ' (' + __email__ + ')' + '\n')
 
     parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('aai_summary_file', help='file indicating AAI between all pairs of genomes')
@@ -106,7 +108,7 @@ if __name__ == '__main__':
         myClass = MyClass()
         myClass.run(args.aai_summary_file, args.aai_matrix, args.orthology_matrix)
     except SystemExit:
-        print "\nControlled exit resulting from an unrecoverable error or warning."
+        print("\nControlled exit resulting from an unrecoverable error or warning.")
     except:
-        print "\nUnexpected error:", sys.exc_info()[0]
+        print("\nUnexpected error:", sys.exc_info()[0])
         raise

@@ -64,7 +64,7 @@ class AAICalculator(object):
         """
 
         offset_table = defaultdict(dict)
-        with open(sorted_hit_table, 'rb', 512 * (10 ** 6)) as f:
+        with open(sorted_hit_table, 'r', 512 * (10 ** 6)) as f:
             cur_query_genome = None
             cur_target_genome = None
             start_pos = 0
@@ -180,7 +180,7 @@ class AAICalculator(object):
             Identifier of genomes to process.
         """
 
-        hit_table_stream = open(self.sorted_hit_table, 'rb', 128 * (10 ** 6))
+        hit_table_stream = open(self.sorted_hit_table, 'r', 128 * (10 ** 6))
 
         # get genome ID and number of genes in genomes to process
         query_genome_id, genomes_to_process = genome_id_list
@@ -210,7 +210,7 @@ class AAICalculator(object):
 
             # report reciprocal best blast hits
             per_identity_hits = []
-            for query_id, hit_stats in hits.iteritems():
+            for query_id, hit_stats in hits.items():
                 bRBH = False
                 for query_hit in hit_stats:
                     target_id, per_identA, per_aln_lenA, evalueA, bitscoreA = query_hit
@@ -401,14 +401,14 @@ class AAICalculator(object):
         genome_id_lists = []
         query_genomes = list(query_genomes)
         target_genomes = list(target_genomes)
-        for i in xrange(0, len(query_genomes)):
+        for i in range(0, len(query_genomes)):
             genome_idI = query_genomes[i]
             
             if target_genomes:
                 genome_id_list = target_genomes
             else:
                 genome_id_list = []
-                for j in xrange(i + 1, len(query_genomes)):
+                for j in range(i + 1, len(query_genomes)):
                     genome_idJ = query_genomes[j]
                     genome_id_list.append(genome_idJ)
 

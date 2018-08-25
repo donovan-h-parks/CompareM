@@ -1,7 +1,6 @@
 # CompareM
 
 [![version status](https://img.shields.io/pypi/v/comparem.svg)](https://pypi.python.org/pypi/comparem)
-[![downloads](https://img.shields.io/pypi/dm/comparem.svg)](https://pypi.python.org/pypi/comparem)
 
 CompareM is a software toolkit which supports performing large-scale comparative genomic analyses. It provides statistics across sets of genomes (e.g., amino acid identity) and for individual genomes (e.g., codon usage). Parallelized implementations are provided for computationally intensive tasks in order to allow scalability to thousands of genomes. Common workflows are provided as single methods to support easy adoption by users, and a more granular interface provided to allow experienced users to exploit specific functionality. CompareM is open source and released under the GNU General Public License (Version 3). 
 
