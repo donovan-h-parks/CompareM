@@ -63,7 +63,7 @@ Scheduled functionality:
 def version():
     import comparem
     version_file = open(os.path.join(comparem.__path__[0], 'VERSION'))
-    return version_file.read().strip()
+    return version_file.readline().strip()
 
 
 def print_help():

@@ -217,7 +217,6 @@ class SimilaritySearch(object):
         hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
         self._sort_hit_table(tmp_hits_table.name, hits_table_file)
         
-        
     def _run_reciprocal_diamond(self, query_gene_file,
                                         target_gene_file,
                                         evalue, 

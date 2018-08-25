@@ -426,7 +426,7 @@ class AAICalculator(object):
         self.logger.info('Summarizing AAI results.')
         aai_summay_file = os.path.join(output_dir, 'aai_summary.tsv')
         fout = open(aai_summay_file, 'w')
-        fout.write('Genome A\tGenes in A\tGenome B\tGenes in B\t# orthologous genes\tMean AAI\tStd AAI\tOrthologous fraction (OF)\n')
+        fout.write('#Genome A\tGenes in A\tGenome B\tGenes in B\t# orthologous genes\tMean AAI\tStd AAI\tOrthologous fraction (OF)\n')
 
         for data in consumer_data:
             fout.write('%s\t%d\t%s\t%d\t%d\t%.2f\t%.2f\t%.2f\n' % data)

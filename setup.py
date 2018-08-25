@@ -5,7 +5,7 @@ import os
 def version():
     setupDir = os.path.dirname(os.path.realpath(__file__))
     versionFile = open(os.path.join(setupDir, 'comparem', 'VERSION'))
-    return versionFile.read().strip()
+    return versionFile.readline().strip()
 
 setup(
     name='comparem',

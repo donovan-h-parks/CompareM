@@ -1,1 +1,5 @@
+0.0.24
+- hclust command now expects files with comment lines to start with a hash (#)
+- hclust command now write full floating point value for resulting tree and not just first 2 digits
+
 0.0.23
