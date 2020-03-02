@@ -20,6 +20,9 @@ CompareM is a software toolkit which supports performing large-scale comparative
 * di-nucleotide and codon usage patterns for identifying LGT
 * data exploration using dissimilarity matrices, hierarchical clustering trees, and heat maps
 
+## Announcements
+
+* Ported to Python 3 starting with version 0.1.0
 
 ## Installation
 
