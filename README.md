@@ -78,7 +78,7 @@ Other output files produced by this command are described below.
 
 ## Program Usage
 
-Detailed information regarding the use of CompareM can be found in the User's Guide (user_guide.pdf).
+Detailed information regarding the use of CompareM can be found in the User's Guide ([user_guide.pdf](https://github.com/dparks1134/CompareM/blob/master/users_guide.pdf)).
 
 
 ## Cite
