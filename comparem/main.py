@@ -235,7 +235,10 @@ class OptionsParser():
         genome_aa_usage, aa_set = amino_acid_usage.run(gene_files)
 
         # write out results
-        self._write_usage_profile(genome_aa_usage, aa_set, options.counts, options.output_file)
+        self._write_usage_profile(genome_aa_usage, 
+                                    aa_set, 
+                                    options.counts, 
+                                    options.output_file)
 
         self.logger.info('Amino acid usage written to: %s' % options.output_file)
 
@@ -249,7 +252,10 @@ class OptionsParser():
         genome_codon_usage, codon_set, _mean_length = codon_usage.run(gene_files)
 
         # write out results
-        self._write_usage_profile(genome_codon_usage, codon_set, options.counts, options.output_file)
+        self._write_usage_profile(genome_codon_usage, 
+                                    codon_set, 
+                                    options.counts, 
+                                    options.output_file)
 
         self.logger.info('Codon usage written to: %s' % options.output_file)
 
@@ -264,7 +270,10 @@ class OptionsParser():
 
         # write out results
         if not options.mean_gene_length:
-            self._write_usage_profile(genome_codon_usage, codon_set, options.counts, options.output_file)
+            self._write_usage_profile(genome_codon_usage, 
+                                        codon_set, 
+                                        options.counts, 
+                                        options.output_file)
         else:
             fout = open(options.output_file, 'w')
             for codon in codon_set:
@@ -304,7 +313,10 @@ class OptionsParser():
 
         # write out results
         self.logger.info('Writing kmer profiles to file (be patient!).')
-        self._write_usage_profile(genome_kmer_usage, kmer_set, options.counts, options.output_file)
+        self._write_usage_profile(genome_kmer_usage, 
+                                    kmer_set, 
+                                    options.counts, 
+                                    options.output_file)
 
         self.logger.info('Kmer usage written to: %s' % options.output_file)
 
@@ -354,9 +366,9 @@ class OptionsParser():
             # write out lower triangle from condense dissimilarity matrix,
             # in pairwise fashion
             fout.write('Genome A\tGenome B\tDissimilarity\n')
-            condensed_idx = lambda i,j,n: n*j - j*(j+1)/2 + i - 1 - j
-            for i in xrange(1, len(genome_ids)):
-                for j in xrange(i):
+            condensed_idx = lambda i,j,n: n*j - j*(j+1)//2 + i - 1 - j
+            for i in range(1, len(genome_ids)):
+                for j in range(i):
                     fout.write('%s\t%s\t%f\n' % (genome_ids[i], genome_ids[j], d[condensed_idx(i, j, len(genome_ids))]))
         else:
             # write out full dissimilarity matrix
@@ -367,7 +379,7 @@ class OptionsParser():
             
             for i, genome_id in enumerate(genome_ids):
                 fout.write(genome_id)
-                for j in xrange(len(genome_ids)):
+                for j in range(len(genome_ids)):
                     fout.write('\t%f' % ds[i,j])
                 fout.write('\n')
         

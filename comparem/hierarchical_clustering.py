@@ -64,25 +64,28 @@ class HierarchicalCluster(object):
         upper_triangle = defaultdict(lambda : defaultdict(float))
         genome_ids = set()
         genomes = set()
-        for line in open(pairwise_value_file):
-            if line[0] == '#':
-                f.readline()
-
-            line_split = line.rstrip().split('\t')
+        with open(pairwise_value_file) as f:
+            f.readline() # skip header line
             
-            genome_idA = line_split[name_col1]
-            genome_idB = line_split[name_col2]
-            value = float(line_split[value_col])
-                 
-            if similarity:
-                if max_sim_value < value:
-                    self.logger.error('Maximum similarity score %f is less than identified pairwise value %f.' % (max_sim_value, value))
-                    sys.exit(-1)
-                value = max_sim_value - value
+            for line in f:
+                if line[0] == '#':
+                    f.readline()
+
+                line_split = line.rstrip().split('\t')
                 
-            upper_triangle[genome_idA][genome_idB] = value
-            genome_ids.add(genome_idA)
-            genome_ids.add(genome_idB)
+                genome_idA = line_split[name_col1]
+                genome_idB = line_split[name_col2]
+                value = float(line_split[value_col])
+                     
+                if similarity:
+                    if max_sim_value < value:
+                        self.logger.error('Maximum similarity score %f is less than identified pairwise value %f.' % (max_sim_value, value))
+                        sys.exit(-1)
+                    value = max_sim_value - value
+                    
+                upper_triangle[genome_idA][genome_idB] = value
+                genome_ids.add(genome_idA)
+                genome_ids.add(genome_idB)
         
         # sort by row size
         genome_labels = []  
@@ -97,9 +100,9 @@ class HierarchicalCluster(object):
         genome_labels.append(genome_ids.pop())
  
         diss_vector = []
-        for i in xrange(0, len(genome_labels)):
+        for i in range(0, len(genome_labels)):
             genome_idA = genome_labels[i]
-            for j in xrange(i+1, len(genome_labels)):
+            for j in range(i+1, len(genome_labels)):
                 genome_idB = genome_labels[j]
                 diss_vector.append(upper_triangle[genome_idA][genome_idB])
 

@@ -25,7 +25,7 @@ __email__ = 'donovan.parks@gmail.com'
 import os
 import logging
 import ntpath
-from collections import namedtuple
+from collections import namedtuple, defaultdict
 
 import biolib.seq_io as seq_io
 from biolib.genomic_signature import GenomicSignature
@@ -76,7 +76,7 @@ class KmerUsage(object):
         genome_id = os.path.splitext(genome_id)[0]
 
         seqs = seq_io.read_fasta(genome_file)
-        kmer_usage = self.signatures.calculate(seqs)
+        kmer_usage = self.signatures.counts(seqs)
 
         return (genome_id, kmer_usage)
 
@@ -88,25 +88,20 @@ class KmerUsage(object):
         produced_data : list -> [genome_id, kmer_usage]
             Unique id of a genome followed by a dictionary
             indicating its kmer usage.
-        consumer_data : namedtuple
-            Set of kmers observed across all genomes (kmer_set),
-            along with the kmer usage of each genome (genome_kmer_usage).
 
         Returns
         -------
         consumer_data
-            The consumer data structure or None must be returned
+            dictionary indicating the frequency of kmers in each genome
         """
 
         if consumer_data == None:
-            # setup data to be returned by consumer
-            ConsumerData = namedtuple('ConsumerData', 'kmer_set genome_kmer_usage')
-            consumer_data = ConsumerData(set(), dict())
+            consumer_data = defaultdict(dict)
 
         genome_id, kmer_usage = produced_data
-
-        consumer_data.kmer_set.update(kmer_usage.keys())
-        consumer_data.genome_kmer_usage[genome_id] = kmer_usage
+        
+        for idx, kmer in enumerate(self.signatures.canonical_order()):
+            consumer_data[genome_id][kmer] = kmer_usage[idx]
 
         return consumer_data
 
@@ -151,6 +146,6 @@ class KmerUsage(object):
             progress_func = None
 
         parallel = Parallel(self.cpus)
-        consumer_data = parallel.run(self._producer, self._consumer, genome_files, progress_func)
+        kmer_counts = parallel.run(self._producer, self._consumer, genome_files, progress_func)
 
-        return consumer_data.genome_kmer_usage, consumer_data.kmer_set
+        return kmer_counts, self.signatures.canonical_order()

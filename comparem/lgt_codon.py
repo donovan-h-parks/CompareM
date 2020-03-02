@@ -76,8 +76,9 @@ class LgtCodon(object):
             dist[gene_id] = [d]
 
         # model all distances as a normal distribution
-        m = mean(dist.values())
-        s = std(dist.values())
+        values = list(dist.values())
+        m = mean(values)
+        s = std(values)
 
         # calculate standard deviations from the mean
         for gene_id, d in dist.items():
@@ -103,7 +104,7 @@ class LgtCodon(object):
         for gene_id, seq in seqs.items():
             gc[gene_id] = seq_tk.gc(seq)
 
-            for i in xrange(0, len(seq) - 3, 3):
+            for i in range(0, len(seq) - 3, 3):
                 codon = seq[i:i + 3].upper()
                 if 'N' not in codon:
                     gene_codon_usage[gene_id][codon] += 1
