@@ -258,11 +258,11 @@ class SimilaritySearch(object):
         self.logger.info('Creating DIAMOND database of query proteins (be patient!).')
         diamond = Diamond(self.cpus)
         query_diamond_db = os.path.join(output_dir, 'query_genes')
-        diamond.make_database(query_gene_file, query_diamond_db)
+        diamond.create_db(query_gene_file, query_diamond_db)
         
         self.logger.info('Creating DIAMOND database of target proteins (be patient!).')
         target_diamond_db = os.path.join(output_dir, 'target_genes')
-        diamond.make_database(target_gene_file, target_diamond_db)
+        diamond.create_db(target_gene_file, target_diamond_db)
 
         # blast query genes against target proteins
         self.logger.info('Performing similarity sequence between query and target proteins (be patient!).')

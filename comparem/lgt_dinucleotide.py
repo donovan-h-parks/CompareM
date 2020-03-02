@@ -133,9 +133,10 @@ class LgtDinucleotide(object):
 
         # calculate covariance matrix
         cov_matrix = []
-        for di_j in genome_di_bias.keys()[0:-1]:
+        keys = list(genome_di_bias.keys())
+        for di_j in keys[0:-1]:
             row = []
-            for di_k in genome_di_bias.keys()[0:-1]:
+            for di_k in keys[0:-1]:
                 s = 0
                 for dinucleotides in gene_di_bias.values():
                     s += (dinucleotides[di_j] - genome_di_bias[di_j]) * (dinucleotides[di_k] - genome_di_bias[di_k])
@@ -149,7 +150,7 @@ class LgtDinucleotide(object):
         T2 = {}
         for gene_id, dinucleotides in gene_di_bias.items():
             x = []
-            for di in genome_di_bias.keys()[0:-1]:
+            for di in keys[0:-1]:
                 x.append(dinucleotides[di] - genome_di_bias[di])
             x = array(x)
 
@@ -183,8 +184,9 @@ class LgtDinucleotide(object):
             dist[gene_id] = [d]
 
         # model all distances as a normal distribution
-        m = mean(dist.values())
-        s = std(dist.values())
+        values = list(dist.values())
+        m = mean(values)
+        s = std(values)
 
         # calculate standard deviations from the mean
         for gene_id, d in dist.items():
@@ -215,7 +217,7 @@ class LgtDinucleotide(object):
         for gene_id, seq in seqs.items():
             gc[gene_id] = seq_tk.gc(seq)
 
-            for i in xrange(2, len(seq) - 2, 3):
+            for i in range(2, len(seq) - 2, 3):
                 dinucleotide = seq[i:i + 2].upper()
                 if 'N' not in dinucleotide:
                     gene_di_usage[gene_id][dinucleotide] += 1

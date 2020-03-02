@@ -78,7 +78,7 @@ class CodonUsage(object):
                     codon_usage[codon] += 1
                     gene_length[codon].append(len(seq))
             else:
-                for i in xrange(0, len(seq) - 3, 3):
+                for i in range(0, len(seq) - 3, 3):
                     codon = seq[i:i + 3].upper()
                     if self.keep_ambiguous or 'N' not in codon:
                         codon_usage[codon] += 1
