@@ -20,8 +20,8 @@ import sys
 import logging
 from collections import defaultdict
 
-from comparem.similarity_search import SimilaritySearch
 from comparem.aai_calculator import AAICalculator
+from comparem.ani_blast import ANI_BLAST
 from comparem.classify import Classify
 from comparem.codon_usage import CodonUsage
 from comparem.amino_acid_usage import AminoAcidUsage
@@ -127,14 +127,45 @@ class OptionsParser():
                     fout.write('\t%f' % (features.get(feature, 0) * 100.0 / totals[genome_id]))
             fout.write('\n')
 
-    def ani(self, options):
-        """ANI command"""
-
+    def ani_pairwise(self, options):
+        """ANI pairwise command"""
+        
         make_sure_path_exists(options.output_dir)
+        
+        genome_files = self._input_files(options.input_genomes, options.file_ext)
+        
+        ani_blast = ANI_BLAST(options.cpus)
+        results_file = ani_blast.run_pairwise(genome_files,
+                                                options.evalue, 
+                                                options.per_identity, 
+                                                options.per_aln_len,
+                                                options.method,
+                                                options.fragment_size,
+                                                options.output_dir)
 
-        genome_files = self._genome_files(options.genome_dir, options.file_ext)
+        self.logger.info('Pairwise ANI information written to: %s' % results_file)
+        
+    def ani_classify(self, options):
+        """ANI classify command"""
+        
+        make_sure_path_exists(options.output_dir)
+        
+        query_files = self._input_files(options.query_genomes, options.file_ext)
+        reference_files = self._input_files(options.reference_genomes, options.file_ext)
+        
+        ani_blast = ANI_BLAST(options.cpus)
+        results_file = ani_blast.run_classify(query_files,
+                                                reference_files,
+                                                options.evalue, 
+                                                options.per_identity, 
+                                                options.per_aln_len,
+                                                options.method,
+                                                options.fragment_size,
+                                                options.num_top_targets,
+                                                options.taxonomy_file,
+                                                options.output_dir)
 
-        self.logger.info('Average nucleotide identity information written to: %s' % options.output_dir)
+        self.logger.info('Classification results written to: %s' % results_file)
 
     def call_genes(self, options):
         """Call genes command"""
@@ -162,68 +193,6 @@ class OptionsParser():
         fout.close()
 
         self.logger.info('Identified genes written to: %s' % options.output_dir)
-
-    def similarity(self, options):
-        """Perform sequence similarity search between genes"""
-
-        make_sure_path_exists(options.output_dir)
-        
-        query_gene_files = self._input_files(options.query_proteins, options.file_ext)
-        target_gene_files = self._input_files(options.target_proteins, options.file_ext)
-        
-        ss = SimilaritySearch(options.cpus)
-        ss.run(query_gene_files, 
-                target_gene_files,
-                options.evalue, 
-                options.per_identity, 
-                options.per_aln_len,
-                True,
-                options.tmp_dir,
-                options.blastp,
-                options.sensitive,
-                options.keep_headers,
-                options.output_dir)
-
-        self.logger.info('Sequence similarity results written to: %s' % options.output_dir)
-        
-    def aai(self, options):
-        """AAI command"""
-        check_file_exists(options.sorted_hit_table)
-        make_sure_path_exists(options.output_dir)
-
-        aai_calculator = AAICalculator(options.cpus)
-        aai_output_file, rbh_output_file = aai_calculator.run(options.query_gene_file,
-                                                                None,
-                                                                options.sorted_hit_table,
-                                                                options.evalue,
-                                                                options.per_identity,
-                                                                options.per_aln_len,
-                                                                options.keep_rbhs,
-                                                                options.output_dir)
-
-        if rbh_output_file:
-            self.logger.info('Identified reciprocal best hits written to: %s' % rbh_output_file)
-            
-        self.logger.info('AAI between genomes written to: %s' % aai_output_file)
-        
-    def classify(self, options):
-        """Classify genomes based on AAI values."""
-        check_file_exists(options.sorted_hit_table)
-        make_sure_path_exists(options.output_dir)
-        
-        classify = Classify(options.cpus)
-        results_file = classify.run(options.query_gene_file,
-                                        options.target_gene_file,
-                                        options.sorted_hit_table,
-                                        options.evalue,
-                                        options.per_identity,
-                                        options.per_aln_len,
-                                        options.num_top_targets,
-                                        options.taxonomy_file,
-                                        options.keep_rbhs,
-                                        options.output_dir)
-        
-        self.logger.info('Classification results written to: %s' % results_file)
 
     def aa_usage(self, options):
         """Amino acid usage command"""
@@ -418,14 +387,12 @@ class OptionsParser():
         except:
             pass
 
-        if(options.subparser_name == 'call_genes'):
+        if(options.subparser_name == 'ani_pairwise'):
+            self.ani_pairwise(options)
+        elif(options.subparser_name == 'ani_classify'):
+            self.ani_classify(options)
+        elif(options.subparser_name == 'call_genes'):
             self.call_genes(options)
-        elif(options.subparser_name == 'similarity'):
-            self.similarity(options)
-        elif(options.subparser_name == 'aai'):
-            self.aai(options)
-        elif(options.subparser_name == 'classify'):
-            self.classify(options)
         elif(options.subparser_name == 'aai_wf'):
             root_dir = options.output_dir
             make_sure_path_exists(root_dir)
@@ -434,24 +401,25 @@ class OptionsParser():
                 if options.file_ext == 'fna':
                     self.logger.warning("Changing file extension from 'fna' to 'faa' since 'proteins' flag was given.")
                     options.file_ext = 'faa'
-                options.query_proteins = options.input_files
-                options.target_proteins = options.input_files
+                options.query_files = options.input_files
+                options.target_files = options.input_files
             else:
                 options.input_genomes = options.input_files
                 options.output_dir = os.path.join(root_dir, 'genes')
                 self.call_genes(options)
-                options.query_proteins = os.path.join(root_dir, 'genes')
-                options.target_proteins = os.path.join(root_dir, 'genes')
+                options.query_files = os.path.join(root_dir, 'genes')
+                options.target_files = os.path.join(root_dir, 'genes')
                 options.file_ext = 'faa'
 
             options.output_dir = os.path.join(root_dir, 'similarity')
+            options.fragment_size = 0
             self.similarity(options)
             
             options.query_gene_file = os.path.join(options.output_dir, 'query_genes.faa')
             options.sorted_hit_table = os.path.join(options.output_dir, 'hits_sorted.tsv')
             options.output_dir = os.path.join(root_dir, 'aai')
             self.aai(options)
-        elif(options.subparser_name == 'classify_wf'):
+        elif(options.subparser_name == 'aai_classify_wf'):
             root_dir = options.output_dir
             make_sure_path_exists(root_dir)
             
@@ -463,8 +431,8 @@ class OptionsParser():
                 if options.file_ext == 'fna':
                     self.logger.warning("Changing file extension from 'fna' to 'faa' since 'proteins' flag was given.")
                     options.file_ext = 'faa'
-                options.query_proteins = options.query_files
-                options.target_proteins = options.target_files
+                options.query_files = options.query_files
+                options.target_files = options.target_files
             else:
                 options.input_genomes = options.query_files
                 options.output_dir = os.path.join(root_dir, 'query_genes')
@@ -474,11 +442,12 @@ class OptionsParser():
                 options.output_dir = os.path.join(root_dir, 'target_genes')
                 self.call_genes(options)
                 
-                options.query_proteins = os.path.join(root_dir, 'query_genes')
-                options.target_proteins = os.path.join(root_dir, 'target_genes')
+                options.query_files = os.path.join(root_dir, 'query_genes')
+                options.target_files = os.path.join(root_dir, 'target_genes')
                 options.file_ext = 'faa'
 
             options.output_dir = os.path.join(root_dir, 'similarity')
+            options.fragment_size = 0
             self.similarity(options)
             
             options.query_gene_file = os.path.join(options.output_dir, 'query_genes.faa')

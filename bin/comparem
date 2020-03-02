@@ -44,8 +44,6 @@ from biolib.misc.custom_help_formatter import ChangeTempAction, CustomHelpFormat
 To do:
 
 Scheduled functionality:
-    ani           -> [Not implemented] Calculate the ANI between genome pairs
-    
     gene_wf -> Run core, dispensable, and unique
      core         -> [Not implemented] Identify genes contained in all genomes
      dispensable  -> [Not implemented] Identify genes contained in more than one, but not all genomes
@@ -72,19 +70,17 @@ def print_help():
     print('                ...::: CompareM v' + version() + ' :::...''')
     print('''\
 
-    Common workflows:
-     aai_wf      -> Calculate AAI between all pairs of genomes
-                    (runs call_genes => similarity => aai)
-     classify_wf -> Identify similar genomes based on AAI values
-                    (runs call_genes => similarity => classify)
+    Average nucleotide identity:
+     ani_pairwise -> Calculate ANI between all pairs of genomes
+     ani_classify -> Calculate ANI between query and reference genomes
+
+                        
+    Amino acid identity workflows:
+     aai_pairwise -> Calculate AAI between all pairs of genomes
+     aai_classify -> Calculate AAI between query and reference genomes
                     
     Gene prediction:
      call_genes -> Identify genes within genomes
-                     
-    Gene homology and genome similarity:
-     similarity -> Perform reciprocal sequence similarity search between proteins
-     aai        -> Calculate AAI between all pairs of genomes
-     classify   -> Identify similar genomes based on AAI value
 
     Usage profiles:
      aa_usage    -> Calculate amino acid usage within each genome
@@ -111,7 +107,80 @@ if __name__ == '__main__':
     # initialize the options parser
     parser = argparse.ArgumentParser(add_help=False)
     subparsers = parser.add_subparsers(help="--", dest='subparser_name')
-
+    
+    # calculate ANI between all genomes
+    ani_pairwise_parser = subparsers.add_parser('ani_pairwise',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Calculate ANI between all pairs of genomes.')
+    ani_pairwise_parser.add_argument('input_genomes', help="directory or file indicating genomes to compare via ANI")
+    ani_pairwise_parser.add_argument('output_dir', help="output directory")
+    ani_pairwise_parser.add_argument('--method', choices=['ANI_BLASTN', 'ANI_DC-MEGABLAST', 'ANI_MEGABLAST'], help="similarity search method to use", default='ANI_BLASTN')
+    ani_pairwise_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial BLAST hits")
+    ani_pairwise_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homologous regions")
+    ani_pairwise_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homologous regions")
+    ani_pairwise_parser.add_argument('-f', '--fragment_size', type=int, default=1020, help="fragment size for identifying homologous regions")
+    ani_pairwise_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
+    ani_pairwise_parser.add_argument('--tmp_dir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
+    ani_pairwise_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    ani_pairwise_parser.add_argument('--silent', help="suppress output", action='store_true')
+    
+    # classify genomes based on ANI values
+    ani_classify_parser = subparsers.add_parser('ani_classify',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Calculate ANI between query and reference genomes.')
+    ani_classify_parser.add_argument('query_genomes', help="directory or file indicating query genomes")
+    ani_classify_parser.add_argument('reference_genomes', help="directory or file indicating reference genomes")
+    ani_classify_parser.add_argument('output_dir', help="output directory")
+    ani_classify_parser.add_argument('--method', choices=['ANI_BLASTN', 'ANI_DC-MEGABLAST', 'ANI_MEGABLAST'], help="similarity search method to use", default='ANI_BLASTN')
+    ani_classify_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
+    ani_classify_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
+    ani_classify_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
+    ani_classify_parser.add_argument('-f', '--fragment_size', type=int, default=1020, help="fragment size for identifying homologous regions")
+    ani_classify_parser.add_argument('-k', '--num_top_targets', type=int, default=1, help="number of top scoring reference genomes to report per query genome")
+    ani_classify_parser.add_argument('-t', '--taxonomy_file', help="file indicating taxonomic identification of all reference genomes")
+    ani_classify_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
+    ani_classify_parser.add_argument('--keep_rbhs', help="create file with reciprocal best hits", action='store_true')
+    ani_classify_parser.add_argument('--tmp_dir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
+    ani_classify_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    ani_classify_parser.add_argument('--silent', help="suppress output", action='store_true')
+    
+    # calculate AAI between all genomes
+    aai_pairwise_parser = subparsers.add_parser('aai_pairwise',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Calculate AAI between all pairs of genomes.')
+    aai_pairwise_parser.add_argument('input_genomes', help="directory or file indicating genome proteomes to compare via AAI")
+    aai_pairwise_parser.add_argument('output_dir', help="output directory")
+    aai_pairwise_parser.add_argument('--method', choices=['AAI_DIAMOND', 'AAI_BLASTP-FAST'], help="similarity search method to use", default='AAI_DIAMOND')
+    aai_pairwise_parser.add_argument('--sensitive', action="store_true", default=False, help="use sensitive mode of DIAMOND")
+    aai_pairwise_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial BLAST hits")
+    aai_pairwise_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
+    aai_pairwise_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
+    aai_pairwise_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
+    aai_pairwise_parser.add_argument('--keep_rbhs', help="create file with reciprocal best hits", action='store_true')
+    aai_pairwise_parser.add_argument('--tmp_dir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
+    aai_pairwise_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    aai_pairwise_parser.add_argument('--silent', help="suppress output", action='store_true')
+        
+    # classify genomes based on AAI values
+    aai_classify_parser = subparsers.add_parser('aai_classify',
+                                        formatter_class=CustomHelpFormatter,
+                                        description='Calculate AAI between query and reference genomes.')
+    aai_classify_parser.add_argument('query_genomes', help="directory or file indicating proteomes of query genomes")
+    aai_classify_parser.add_argument('reference_genomes', help="directory or file indicating proteomes of reference genomes")
+    aai_classify_parser.add_argument('output_dir', help="output directory")
+    aai_classify_parser.add_argument('--method', choices=['AAI_DIAMOND', 'AAI_BLASTP-FAST'], help="similarity search method to use", default='AAI_DIAMOND')
+    aai_classify_parser.add_argument('--sensitive', action="store_true", default=False, help="use sensitive mode of DIAMOND")
+    aai_classify_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
+    aai_classify_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
+    aai_classify_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
+    aai_classify_parser.add_argument('-k', '--num_top_targets', type=int, default=1, help="number of top scoring reference genomes to report per query genome")
+    aai_classify_parser.add_argument('-t', '--taxonomy_file', help="file indicating taxonomic identification of all reference genomes")
+    aai_classify_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
+    aai_classify_parser.add_argument('--keep_rbhs', help="create file with reciprocal best hits", action='store_true')
+    aai_classify_parser.add_argument('--tmp_dir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
+    aai_classify_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
+    aai_classify_parser.add_argument('--silent', help="suppress output", action='store_true')
+    
     # identify genes within genomes
     call_genes_parser = subparsers.add_parser('call_genes',
                                         formatter_class=CustomHelpFormatter,
@@ -122,99 +191,6 @@ if __name__ == '__main__':
     call_genes_parser.add_argument('--force_table', type=int, default=None, help="force use of specific translation table")
     call_genes_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
     call_genes_parser.add_argument('--silent', help="suppress output", action='store_true')
-
-    # sequence similarity search between genes
-    similarity_parser = subparsers.add_parser('similarity',
-                                        formatter_class=CustomHelpFormatter,
-                                        description='Perform sequence similarity search between genes.')
-    similarity_parser.add_argument('query_proteins', help="query protein files to process")
-    similarity_parser.add_argument('target_proteins', help="target protein files to process")
-    similarity_parser.add_argument('output_dir', help="output directory")
-    similarity_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="maximum e-value for reporting an alignments")
-    similarity_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="minimum percent identity for reporting an alignment")
-    similarity_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="minimum percent coverage of query sequence for reporting an alignment")
-    similarity_parser.add_argument('-x', '--file_ext', default='faa', help="extension of files to process")
-    similarity_parser.add_argument('--blastp', action="store_true", default=False, help="use Blastp-fast instead of DIAMOND")
-    similarity_parser.add_argument('--sensitive', action="store_true", default=False, help="use sensitive mode of DIAMOND")
-    similarity_parser.add_argument('--keep_headers', action="store_true", default=False, help="indicates FASTA headers already have the format <genome_id>~<gene_id>")
-    similarity_parser.add_argument('--tmp_dir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
-    similarity_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
-    similarity_parser.add_argument('--silent', help="suppress output", action='store_true')
-    
-    # reciprocal best hits between genome pairs
-    aai_parser = subparsers.add_parser('aai',
-                                        formatter_class=CustomHelpFormatter,
-                                        description='Calculate the AAI between all genome pairs.')
-    aai_parser.add_argument('query_gene_file', help="file with all query genes")
-    aai_parser.add_argument('sorted_hit_table', help="sorted file indicating genes passing sequence similarity criteria")
-    aai_parser.add_argument('output_dir', help="output directory")
-    aai_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="maximum e-value for reporting an alignments")
-    aai_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="minimum percent identity for reporting an alignment")
-    aai_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="minimum percent coverage of query sequence for reporting an alignment")
-    aai_parser.add_argument('--keep_rbhs', help="create file with reciprocal best hits", action='store_true')
-    aai_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
-    aai_parser.add_argument('--silent', help="suppress output", action='store_true')
-    
-    # runs workflow for classifying genomes based on AAI values
-    classify_parser = subparsers.add_parser('classify',
-                                        formatter_class=CustomHelpFormatter,
-                                        description='Identify similar genomes based on AAI value.')
-    classify_parser.add_argument('query_gene_file', help="file with all query genes")
-    classify_parser.add_argument('target_gene_file', help="file with all target genes")
-    classify_parser.add_argument('sorted_hit_table', help="sorted file indicating genes passing sequence similarity criteria")
-    classify_parser.add_argument('output_dir', help="output directory")
-    classify_parser.add_argument('-k', '--num_top_targets', type=int, default=1, help="number of top scoring target genomes to report per query genome")
-    classify_parser.add_argument('-t', '--taxonomy_file', help="file indicating taxonomic identification of all target genomes")
-    classify_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
-    classify_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
-    classify_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
-    classify_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
-    classify_parser.add_argument('--keep_rbhs', help="create file with reciprocal best hits", action='store_true')
-    classify_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
-    classify_parser.add_argument('--silent', help="suppress output", action='store_true')
-
-    # runs workflow for calculating AAI between all genomes
-    aai_wf_parser = subparsers.add_parser('aai_wf',
-                                        formatter_class=CustomHelpFormatter,
-                                        description='Calculate AAI between all pairs of genomes')
-    aai_wf_parser.add_argument('input_files', help="genome files")
-    aai_wf_parser.add_argument('output_dir', help="output directory")
-    aai_wf_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
-    aai_wf_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
-    aai_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
-    aai_wf_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
-    aai_wf_parser.add_argument('--proteins', action="store_true", default=False, help="indicates the input files contain protein sequences")
-    aai_wf_parser.add_argument('--force_table', type=int, default=None, help="force use of specific translation table")
-    aai_wf_parser.add_argument('--blastp', action="store_true", default=False, help="use blastp instead of diamond")
-    aai_wf_parser.add_argument('--sensitive', action="store_true", default=False, help="use sensitive mode of DIAMOND")
-    aai_wf_parser.add_argument('--keep_headers', action="store_true", default=False, help="indicates FASTA headers already have the format <genome_id>~<gene_id>")
-    aai_wf_parser.add_argument('--keep_rbhs', help="create file with reciprocal best hits", action='store_true')
-    aai_wf_parser.add_argument('--tmp_dir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
-    aai_wf_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
-    aai_wf_parser.add_argument('--silent', help="suppress output", action='store_true')
-    
-    # runs workflow for classifying genomes based on AAI values
-    classify_wf_parser = subparsers.add_parser('classify_wf',
-                                        formatter_class=CustomHelpFormatter,
-                                        description='Identify similar genomes based on AAI value.')
-    classify_wf_parser.add_argument('query_files', help="query genome files")
-    classify_wf_parser.add_argument('target_files', help="target genome files")
-    classify_wf_parser.add_argument('output_dir', help="output directory")
-    classify_wf_parser.add_argument('-k', '--num_top_targets', type=int, default=1, help="number of top scoring target genomes to report per query genome")
-    classify_wf_parser.add_argument('-t', '--taxonomy_file', help="file indicating taxonomic identification of all target genomes")
-    classify_wf_parser.add_argument('-e', '--evalue', type=float, default=1e-3, help="e-value cutoff for identifying initial blast hits")
-    classify_wf_parser.add_argument('-p', '--per_identity', type=float, default=30.0, help="percent identity for defining homology")
-    classify_wf_parser.add_argument('-a', '--per_aln_len', type=float, default=70.0, help="percent alignment length of query sequence for defining homology")
-    classify_wf_parser.add_argument('-x', '--file_ext', default='fna', help="extension of files to process")
-    classify_wf_parser.add_argument('--proteins', action="store_true", default=False, help="indicates the input files contain protein sequences")
-    classify_wf_parser.add_argument('--force_table', type=int, default=None, help="force use of specific translation table")
-    classify_wf_parser.add_argument('--blastp', action="store_true", default=False, help="use blastp instead of diamond")
-    classify_wf_parser.add_argument('--sensitive', action="store_true", default=False, help="use sensitive mode of DIAMOND")
-    classify_wf_parser.add_argument('--keep_headers', action="store_true", default=False, help="indicates FASTA headers already have the format <genome_id>~<gene_id>")
-    classify_wf_parser.add_argument('--keep_rbhs', help="create file with reciprocal best hits", action='store_true')
-    classify_wf_parser.add_argument('--tmp_dir', action=ChangeTempAction, default=tempfile.gettempdir(), help="specify alternative directory for temporary files")
-    classify_wf_parser.add_argument('-c', '--cpus', help='number of CPUs to use', type=int, default=1)
-    classify_wf_parser.add_argument('--silent', help="suppress output", action='store_true')
 
     # calculate amino acid usage
     aa_usage_parser = subparsers.add_parser('aa_usage',

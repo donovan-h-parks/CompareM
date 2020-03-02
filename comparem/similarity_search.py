@@ -27,8 +27,9 @@ import sys
 import subprocess
 import logging
 import tempfile
-import shutil
 import platform
+import shutil
+import itertools
 
 import biolib.seq_io as seq_io
 from biolib.common import concatenate_files, remove_extension, make_sure_path_exists
@@ -51,410 +52,203 @@ class SimilaritySearch(object):
         self.logger = logging.getLogger('timestamp')
 
         self.cpus = cpus
-        
-    def _prefix_gene_identifiers(self, gene_files, keep_headers, output_file):
-        """Prefix all gene IDs with genome IDs: <genome_id>~<gene_id>.
-        
-        Parameters
-        ----------
-        gene_files : list of str
-            Genes in fasta files to modify.
-        keep_headers : boolean
-            If True, indicates FASTA headers already have the format <genome_id>~<gene_id>.
-        output_file : str
-            Name of FASTA file to contain modified genes.
-        """
-        
-        fout = open(output_file, 'w')
-        for gf in gene_files:           
-            genome_id = remove_extension(gf)
-            if genome_id.endswith('_genes'):
-                genome_id = genome_id[0:genome_id.rfind('_genes')]
-                
-            for seq_id, seq, annotation in seq_io.read_fasta_seq(gf, keep_annotation=True):
-                if keep_headers:
-                    fout.write('>' + seq_id  + ' ' + annotation + '\n')
-                else:
-                    fout.write('>' + genome_id + '~' + seq_id  + ' ' + annotation + '\n')
-                fout.write(seq + '\n')
-        fout.close()
-        
-    def _sort_hit_table(self, input_hit_table, output_hit_table):
-        """Sort hit table.
-        
-        Parameters
-        ----------
-        input_hit_table : str
-            Table to sort.
-        output_hit_table : str
-            Name of sorted output table. 
-        """
-        
-        self.logger.info('Sorting table with hits (be patient!).')
-        if platform.system() == 'Darwin':
-           os.system("LC_ALL=C sed -i '' 's/~/\t/g' %s" % input_hit_table)
-           os.system("LC_ALL=C gsort --parallel=8 -o %s -k1,1 -k3,3 %s" % (input_hit_table, input_hit_table))
-        else:
-           os.system("LC_ALL=C sed -i 's/~/\t/g' %s" % input_hit_table)
-           os.system("LC_ALL=C sort --parallel=8 -o %s -k1,1 -k3,3 %s" % (input_hit_table, input_hit_table))
 
-        os.system('mv %s %s' % (input_hit_table, output_hit_table))
-     
-    def _run_self_blastp(self, query_gene_file, 
-                                evalue, 
-                                per_identity, 
-                                per_aln_len,
-                                max_hits,
-                                tmp_dir,
-                                output_dir):
-        """Perform similarity search of query genes against themselves.
+    def _producer(self, cmd):
+        """Run command."""
+    
+        process = subprocess.Popen(
+                        ["bash", "-c", cmd],
+                        stdout = subprocess.PIPE,
+                        stderr = subprocess.PIPE,
+                        stdin = None)
+        stdout, stderr = process.communicate(None)
 
-        Parameters
-        ----------
-        query_gene_file : str
-            File with all query sequences.
-        evalue : float
-            E-value threshold for reporting hits.
-        per_identity : float
-            Percent identity threshold for reporting hits.
-        per_aln_len : float
-            Percent query coverage threshold for reporting hits.
-        max_hits : int
-            Maximum number of hits to report per query sequences.
-        tmp_dir : str
-            Directory to store temporary files.
-        output_dir : str
-            Directory to store blast results.
-        """
-        
-        # concatenate all gene files and create a single diamond database
-        self.logger.info('Creating BLASTP database (be patient!).')
-        
-        blast = Blast(self.cpus, silent=True)
-        blast.create_blastp_db(query_gene_file)
-        
-        # create temporary hits table
-        if tmp_dir:
-            tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
-        else:
-            tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
-        tmp_hits_table.close()
-
-        # blast all genes against the database
-        self.logger.info('Performing sequence similarity search between all query genomes (be patient!).')
-        hits_daa_file = os.path.join(output_dir, 'query_hits')
-        blast.blastp(query_gene_file, query_gene_file, tmp_hits_table.name, evalue, max_hits, task='blastp-fast')
-        
-        # sort hit table
-        hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
-        self._sort_hit_table(tmp_hits_table.name, hits_table_file)
-                
-    def _run_self_diamond(self, query_gene_file, 
-                                evalue, 
-                                per_identity, 
-                                per_aln_len,
-                                max_hits,
-                                sensitive,
-                                high_mem,
-                                tmp_dir,
-                                output_dir):
-        """Perform similarity search of query genes against themselves.
-
-        Parameters
-        ----------
-        query_gene_file : str
-            File with all query sequences.
-        evalue : float
-            E-value threshold for reporting hits.
-        per_identity : float
-            Percent identity threshold for reporting hits.
-        per_aln_len : float
-            Percent query coverage threshold for reporting hits.
-        max_hits : int
-            Maximum number of hits to report per query sequences.
-        tmp_dir : str
-            Directory to store temporary files.
-        output_dir : str
-            Directory to store blast results.
-        """
-        
-        self.logger.info('Creating DIAMOND database (be patient!).')
-        
-        diamond_db = os.path.join(output_dir, 'query_genes')
-        diamond = Diamond(self.cpus)
-        diamond.make_database(query_gene_file, diamond_db)
+        if process.returncode != 0:
+            self.logger.error('Failed to execute:')
+            self.logger.error(cmd)
+            self.logger.error('Program returned code: %d' % process.returncode)
             
-        # create flat hits table
-        if tmp_dir:
-            tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
-        else:
-            tmp_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
-        tmp_hits_table.close()
+            if stderr.strip():
+                self.logger.error('Stderr:')
+                self.logger.error(stderr.strip().decode('utf-8'))
+            
+            if stdout.strip():
+                self.logger.error('Stdout:')
+                self.logger.error(stdout.strip().decode('utf-8'))
+                
+            sys.exit(-1)
+            
+        return True
+            
+    def _consumer(self, produced_data, consumer_data):
+        """Consume results from producer processes."""
 
-        # blast all genes against the database
-        self.logger.info('Performing self similarity sequence between genomes (be patient!).')
+        if consumer_data == None:
+            # setup structure for consumed data
+            consumer_data = []
 
-        if high_mem:
-            diamond.blastp(query_gene_file, 
-                            diamond_db, 
-                            evalue, 
-                            per_identity, 
-                            per_aln_len, 
-                            max_hits,
-                            sensitive,
-                            tmp_hits_table.name, 
-                            'standard', 
-                            tmp_dir, 
-                            chunk_size=1, 
-                            block_size=8)
-        else:
-            diamond.blastp(query_gene_file, 
-                            diamond_db, 
-                            evalue, 
-                            per_identity, 
-                            per_aln_len, 
-                            max_hits,
-                            sensitive,
-                            tmp_hits_table.name, 
-                            'standard', 
-                            tmp_dir)
+        consumer_data.append(produced_data)
 
-        # sort hit table
-        hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
-        self._sort_hit_table(tmp_hits_table.name, hits_table_file)
+        return consumer_data
+
+    def _progress_genomes(self, processed_items, total_items):
+        """Report progress of consumer processes."""
+
+        return '  Finished processing %d of %d (%.2f%%) genomes.' % (processed_items, 
+                                                                        total_items, 
+                                                                        float(processed_items) * 100 / total_items)
+                                                                        
+    def _progress_comparisons(self, processed_items, total_items):
+        """Report progress of consumer processes."""
+
+        return '  Finished processing %d of %d (%.2f%%) comparisons.' % (processed_items, 
+                                                                        total_items, 
+                                                                        float(processed_items) * 100 / total_items)
+                                                                    
+    def _create_db_cmd(self, similarity_method, seq_file, db_prefix):
+        """Get command for creating sequence database."""
         
-    def _run_reciprocal_diamond(self, query_gene_file,
-                                        target_gene_file,
-                                        evalue, 
-                                        per_identity, 
-                                        per_aln_len,
-                                        max_hits,
-                                        sensitive,
-                                        high_mem,
-                                        tmp_dir,
-                                        output_dir):
-        """Perform similarity search of query genes against target genes, and reciprocal hits.
+        if similarity_method == 'AAI_DIAMOND':
+            cmd = 'diamond makedb --quiet -p %d --in %s -d %s' % (1, seq_file, db_prefix + '.dmnd')
+        elif similarity_method == 'AAI_BLASTP-FAST':
+            cmd = 'makeblastdb -dbtype prot -in %s -out %s  > /dev/null' % (seq_file, db_prefix + '.db')
+        elif similarity_method in ['ANI_BLASTN', 'ANI_DC-MEGABLAST', 'ANI_MEGABLAST']:
+            cmd = 'makeblastdb -dbtype nucl -in %s -out %s  > /dev/null' % (seq_file, db_prefix + '.db')
+        else:
+            self.logger.error('Unknown similarity search method: %s' % similarity_method)
+            sys.exit(-1)
+        
+        return cmd
+        
+    def _search_cmd(self, similarity_method,
+                            query_file,
+                            db_prefix,
+                            hit_table,
+                            evalue,
+                            per_identity, 
+                            per_aln_len, 
+                            sensitive):
+        """Get command for searching sequence database."""
+
+        if similarity_method == 'AAI_DIAMOND':
+            args = ''
+            if sensitive:
+                args += ' --sensitive'
+
+            cmd = "diamond blastp --quiet -p %d -q %s -d %s -e %g --id %f --query-cover %f -k %d -o %s -f %s %s" % (1,
+                                                                                                                    query_file,
+                                                                                                                    db_prefix,
+                                                                                                                    evalue,
+                                                                                                                    per_identity,
+                                                                                                                    per_aln_len,
+                                                                                                                    1,
+                                                                                                                    hit_table,
+                                                                                                                    '6',
+                                                                                                                    args)
+        elif similarity_method == 'AAI_BLASTP-FAST':
+            cmd = "blastp -task blastp-fast"
+            cmd += " -num_threads %d -query %s -db %s -out %s -evalue %g" % (1, query_file, db_prefix + '.db', hit_table, evalue)
+            cmd += " -max_target_seqs 1 -max_hsps 1"
+            cmd += " -outfmt '%s'" % '6 qseqid qlen sseqid slen length mismatch gaps pident bitscore evalue'
+        elif similarity_method in ['ANI_BLASTN', 'ANI_DC-MEGABLAST', 'ANI_MEGABLAST']:
+            if similarity_method == 'ANI_BLASTN':
+                cmd = "blastn -task blastn"
+            elif similarity_method == 'ANI_DC-MEGABLAST':
+                cmd = "blastn -task dc-megablast"
+            elif similarity_method == 'ANI_MEGABLAST':
+                cmd = "blastn -task megablast"
+            
+            cmd += " -xdrop_gap_final 150 -dust no"
+            cmd += " -num_threads %d -query %s -db %s -out %s -evalue %g" % (1, query_file, db_prefix + '.db', hit_table, evalue)
+            cmd += " -max_target_seqs 1 -max_hsps 1"
+            cmd += " -outfmt '%s'" % '6 qseqid qlen sseqid slen length mismatch gaps pident bitscore evalue'
+        else:
+            self.logger.error('Unknown similarity search method: %s' % similarity_method)
+            sys.exit(-1)
+        
+        return cmd
+        
+    def run(self, 
+                similarity_method,
+                query_files,
+                target_files, 
+                evalue, 
+                per_identity, 
+                per_aln_len,
+                sensitive,
+                self_search,
+                output_dir):
+        """Perform similarity search between query and target files.
 
         Parameters
         ----------
-        query_gene_file : str
-            File with all query proteins.
-        target_gene_file : str
-            File with all target proteins.
+        similarity_method : str
+            Similarity search method to use.
+        query_files : list
+            FASTA files with query sequences.
+        target_files : list
+            FASTA files with target sequences.
         evalue : float
             E-value threshold for reporting hits.
         per_identity : float
             Percent identity threshold for reporting hits.
         per_aln_len : float
             Percent query coverage threshold for reporting hits.
-        max_hits : int
-            Maximum number of hits to report per query sequences.
-        tmp_dir : str
-            Directory to store temporary files.
+        self_search : boolean
+            Allow searching between genomes with same name.
         output_dir : str
             Directory to store blast results.
         """
         
-        self.logger.info('Creating DIAMOND database of query proteins (be patient!).')
-        diamond = Diamond(self.cpus)
-        query_diamond_db = os.path.join(output_dir, 'query_genes')
-        diamond.make_database(query_gene_file, query_diamond_db)
-        
-        self.logger.info('Creating DIAMOND database of target proteins (be patient!).')
-        target_diamond_db = os.path.join(output_dir, 'target_genes')
-        diamond.make_database(target_gene_file, target_diamond_db)
+        assert(similarity_method in ['AAI_DIAMOND', 'AAI_BLASTP-FAST', 'ANI_BLASTN', 'ANI_DC-MEGABLAST', 'ANI_MEGABLAST'])
+    
+        parallel = Parallel(self.cpus)
 
-        # blast query genes against target proteins
-        self.logger.info('Performing similarity sequence between query and target proteins (be patient!).')
-        
-        if tmp_dir:
-            tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
-        else:
-            tmp_query_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
-        tmp_query_hits_table.close()
-        
-        query_hits_daa_file = os.path.join(output_dir, 'query_hits')
-        
-        if high_mem:
-            diamond.blastp(query_gene_file, 
-                            target_diamond_db, 
-                            evalue, 
-                            per_identity, 
-                            per_aln_len, 
-                            max_hits,
-                            sensitive,
-                            tmp_query_hits_table.name, 
-                            'standard', 
-                            tmp_dir, 
-                            chunk_size=1, 
-                            block_size=8)
-        else:
-            diamond.blastp(query_gene_file, 
-                            target_diamond_db, 
-                            evalue, 
-                            per_identity, 
-                            per_aln_len, 
-                            max_hits,
-                            sensitive,
-                            tmp_query_hits_table.name, 
-                            'standard', 
-                            tmp_dir)
+        tmp_db_dir = os.path.join(output_dir, 'tmp_db')
+        make_sure_path_exists(tmp_db_dir)
+
+        # build databases
+        self.logger.info('Creating sequence database for each genome.')
+        cmds = []
+        for target_file in target_files:
+            stem_name = os.path.splitext(os.path.split(target_file)[-1])[0]
+            db_prefix = os.path.join(tmp_db_dir, stem_name)
+            cmd = self._create_db_cmd(similarity_method, target_file, db_prefix)
+            cmds.append(cmd)
+
+        rtn = parallel.run(self._producer, 
+                            self._consumer, 
+                            cmds, 
+                            self._progress_genomes if not self.logger.is_silent else None)
+
+        # perform pairwise similarity search
+        self.logger.info('Performing similarity search between genomes.')
+        cmds = []
+        for query_file in query_files:
+            query_name = os.path.splitext(os.path.split(query_file)[-1])[0]
+            for target_file in target_files:
+                target_name = os.path.splitext(os.path.split(target_file)[-1])[0]
                 
-        # get target genes hit by one or more query proteins
-        self.logger.info('Creating file with target proteins with similarity to query proteins.')
-        target_hit = set()
-        for line in open(tmp_query_hits_table.name):
-            line_split = line.split('\t')
-            target_hit.add(line_split[1])
-
-        target_genes_hits = os.path.join(output_dir, 'target_genes_hit.faa')
-        fout = open(target_genes_hits, 'w')
-        for seq_id, seq in seq_io.read_seq(target_gene_file):
-            if seq_id in target_hit:
-                fout.write('>' + seq_id + '\n')
-                fout.write(seq + '\n')
-        fout.close()
+                if (query_name == target_name) and not self_search:
+                    continue
         
-        self.logger.info('Identified %d target proteins to be used in reciprocal search.' % len(target_hit))
-        
-        # perform reciprocal blast
-        self.logger.info('Performing reciprocal similarity sequence between target and query proteins (be patient!).')
-
-        if tmp_dir:
-            tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', dir=tmp_dir, delete=False)
-        else:
-            tmp_target_hits_table = tempfile.NamedTemporaryFile(prefix='comparem_hits_', delete=False)
-        tmp_target_hits_table.close()
-        
-        if high_mem:
-            diamond.blastp(target_genes_hits, 
-                            query_diamond_db, 
-                            evalue, 
-                            per_identity, 
-                            per_aln_len, 
-                            max_hits,
-                            sensitive,
-                            tmp_target_hits_table.name, 
-                            'standard', 
-                            tmp_dir, 
-                            chunk_size=1, 
-                            block_size=8)
-        else:
-            diamond.blastp(target_genes_hits, 
-                            query_diamond_db, 
-                            evalue, 
-                            per_identity, 
-                            per_aln_len, 
-                            max_hits,
-                            sensitive,
-                            tmp_target_hits_table.name, 
-                            'standard', 
-                            tmp_dir)
-                
-        # combine hit tables and sort
-        os.system('cat %s >> %s' % (tmp_target_hits_table.name, tmp_query_hits_table.name))
-        os.remove(tmp_target_hits_table.name)
-        hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
-        self._sort_hit_table(tmp_query_hits_table.name, hits_table_file)
-
-    def run(self, query_gene_files, 
-                    target_gene_files,
-                    evalue, 
-                    per_identity, 
-                    per_aln_len,
-                    high_mem,
-                    tmp_dir,
-                    blastp,
-                    sensitive,
-                    keep_headers,
-                    output_dir):
-        """Perform similarity search of query genes against target genes.
-
-        Parameters
-        ----------
-        query_gene_files : list of str
-            Query genes in fasta files to process.
-        target_gene_files : list of str
-            Query genes in fasta files to process.
-        evalue : float
-            E-value threshold for reporting hits.
-        per_identity : float
-            Percent identity threshold for reporting hits.
-        per_aln_len : float
-            Percent query coverage threshold for reporting hits.
-        tmp_dir : str
-            Directory to store temporary files.
-        blastp : boolean
-            If True, blasp-fast is used instead of DIAMOND.
-        sensitive : boolean
-            If True, the sensitive mode of DIAMOND is used.
-        keep_headers : boolean
-            If True, indicates FASTA headers already have the format <genome_id>~<gene_id>.
-        output_dir : str
-            Directory to store blast results.
-        """
-           
-        # modify gene ids to include genome ids in order to ensure
-        # all gene identifiers are unique across the set of genomes
-        self.logger.info('Appending genome identifiers to query genes.')
-        query_gene_file = os.path.join(output_dir, 'query_genes.faa')
-        modified_query_gene_files = self._prefix_gene_identifiers(query_gene_files, 
-                                                                    keep_headers,
-                                                                    query_gene_file)
-        
- 
-            
-        if query_gene_files == target_gene_files:
-            target_gene_file = query_gene_file
-        else:
-            self.logger.info('Appending genome identifiers to target genes.')
-            target_gene_file = os.path.join(output_dir, 'target_genes.faa')
-            modified_target_gene_files = self._prefix_gene_identifiers(target_gene_files, 
-                                                                        keep_headers, 
-                                                                        target_gene_file)
-
-        if blastp:
-            if target_gene_file == query_gene_file:
-                self._run_self_blastp(query_gene_file, 
-                                        evalue, 
+                hit_table = os.path.join(output_dir, '%s_vs_%s.tsv' % (query_name, target_name))
+                cmd = self._search_cmd(similarity_method,
+                                        query_file,
+                                        os.path.join(tmp_db_dir, target_name),
+                                        hit_table,
+                                        evalue,
                                         per_identity, 
-                                        per_aln_len,
-                                        len(target_gene_files) * 10,
-                                        tmp_dir,
-                                        output_dir)
-            else:
-                self.logger.info('NOT YET IMPLEMENTED!')
-                sys.exit()
-                self._run_reciprocal_blastp(query_gene_file, 
-                                            target_gene_file, 
-                                            evalue, 
-                                            per_identity, 
-                                            per_aln_len,
-                                            len(target_gene_files) * 10,
-                                            high_mem,
-                                            tmp_dir,
-                                            output_dir)
-        else:
-            if target_gene_file == query_gene_file:
-                self._run_self_diamond(query_gene_file, 
-                                        evalue, 
-                                        per_identity, 
-                                        per_aln_len,
-                                        len(target_gene_files) * 10,
-                                        sensitive,
-                                        high_mem,
-                                        tmp_dir,
-                                        output_dir)
+                                        per_aln_len, 
+                                        sensitive)
 
-            
-            else:
-                self._run_reciprocal_diamond(query_gene_file, 
-                                                target_gene_file, 
-                                                evalue, 
-                                                per_identity, 
-                                                per_aln_len,
-                                                len(target_gene_files) * 10,
-                                                sensitive,
-                                                high_mem,
-                                                tmp_dir,
-                                                output_dir)
+                cmds.append(cmd)
+
+        rtn = parallel.run(self._producer, 
+                            self._consumer, 
+                            cmds, 
+                            self._progress_comparisons if not self.logger.is_silent else None)
+                            
+        # clear up temporary files
+        if tmp_db_dir:
+            shutil.rmtree(tmp_db_dir)
