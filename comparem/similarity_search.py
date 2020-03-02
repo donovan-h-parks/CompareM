@@ -182,7 +182,7 @@ class SimilaritySearch(object):
         
         diamond_db = os.path.join(output_dir, 'query_genes')
         diamond = Diamond(self.cpus)
-        diamond.make_database(query_gene_file, diamond_db)
+        diamond.create_db(query_gene_file, diamond_db)
             
         # create flat hits table
         if tmp_dir:
