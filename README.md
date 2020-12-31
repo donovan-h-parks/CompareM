@@ -1,6 +1,9 @@
 # CompareM
 
 [![version status](https://img.shields.io/pypi/v/comparem.svg)](https://pypi.python.org/pypi/comparem)
+[![Downloads](https://pepy.tech/badge/comparem)](https://pepy.tech/project/comparem)
+[![Downloads](https://pepy.tech/badge/comparem/month)](https://pepy.tech/project/comparem/month)
+[![Bioconda](https://img.shields.io/conda/vn/bioconda/comparem.svg?color=43b02a)](https://anaconda.org/bioconda/comparem)
 
 <b>Note</b>: There is a known issue with CompareM that can results in no homologs being identified when run on some Linux system. This is related to different implementations of 'sort'. Titus Brown has suggest a [solution](https://hackmd.io/L2llRUU_SrWfI4OYN-uozQ?view) that addresses this for Mac OS X. The AAI calculator from the [Kostas Lab](http://enve-omics.ce.gatech.edu/aai/) is an alternative solution.
 
@@ -26,17 +29,29 @@ CompareM is a software toolkit which supports performing large-scale comparative
 
 ## Installation
 
+### Install via Conda
+
+CompareM can be install via Conda using:
+```
+>conda install -c bioconda comparem
+```
+
+### Install via pip
+
+CompareM can be installed using [pip](https://pypi.python.org/pypi/comparem) using:
+```
+> sudo pip install comparem
+```
+You must install Prodigal and DIAMOND independently.
+
+### Dependencies
+
 CompareM makes use of the numpy, scipy, matplotlib, and biolib python packages, and assumes the following 3rd party dependencies are on your system path:
 * [prodigal](http://prodigal.ornl.gov/) >= 2.6.2: Hyatt D, Locascio PF, Hauser LJ, Uberbacher EC. 2012. Gene and translation initiation site prediction in metagenomic sequences. <i>Bioinformatics</i> 28: 2223-2230.
 * [diamond](http://ab.inf.uni-tuebingen.de/software/diamond/) >= 0.9.0: Buchfink B, Xie C, Huson DH. 2015. Fast and sensitive protein alignment using DIAMOND. <i>Nature Methods</i> 12: 59–60 doi:10.1038/nmeth.3176.
 
 Most systems already contain the “SciPy Stack” of numpy, scipy, and matplotlib. However, if you need to install these on your system, instructions can be found at:
 * http://www.scipy.org/install.html
-
-Once these are installed, CompareM can be installed using [pip](https://pypi.python.org/pypi/comparem):
-```
-> sudo pip install comparem
-```
 
 ## Quick Start
 
