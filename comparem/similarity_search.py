@@ -130,8 +130,9 @@ class SimilaritySearch(object):
         # concatenate all gene files and create a single diamond database
         self.logger.info('Creating BLASTP database (be patient!).')
         
+        blastp_db = os.path.join(output_dir, 'query_genes')
         blast = Blast(self.cpus, silent=True)
-        blast.create_blastp_db(query_gene_file)
+        blast.create_blastp_db(query_gene_file, blastp_db)
         
         # create temporary hits table
         if tmp_dir:
@@ -143,7 +144,12 @@ class SimilaritySearch(object):
         # blast all genes against the database
         self.logger.info('Performing sequence similarity search between all query genomes (be patient!).')
         hits_daa_file = os.path.join(output_dir, 'query_hits')
-        blast.blastp(query_gene_file, query_gene_file, tmp_hits_table.name, evalue, max_hits, task='blastp-fast')
+        blast.blastp(query_gene_file, 
+                        blastp_db, 
+                        tmp_hits_table.name, 
+                        evalue, 
+                        max_hits, 
+                        task='blastp-fast')
         
         # sort hit table
         hits_table_file = os.path.join(output_dir, 'hits_sorted.tsv')
