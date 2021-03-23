@@ -1,5 +1,7 @@
 # CompareM
 
+[![Unmaintained](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)   
+
 [![version status](https://img.shields.io/pypi/v/comparem.svg)](https://pypi.python.org/pypi/comparem)
 [![Downloads](https://pepy.tech/badge/comparem)](https://pepy.tech/project/comparem)
 [![Downloads](https://pepy.tech/badge/comparem/month)](https://pepy.tech/project/comparem/month)
