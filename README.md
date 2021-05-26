@@ -9,7 +9,7 @@
 
 <b>Unsupported</b>: Unfortunately, I no longer have time to continue support for CompareM. The [AAI calculator](http://enve-omics.ce.gatech.edu/aai/) at the Kostas Lab or the [EzAAI tool](http://leb.snu.ac.kr/ezaai) may meet your needs.
 
-<b>Note</b>: There is a known issue with CompareM that can results in no homologs being identified when run on some Linux system. This is related to different implementations of 'sort'. Titus Brown has suggest a [solution](https://hackmd.io/L2llRUU_SrWfI4OYN-uozQ?view) that addresses this for Mac OS X. The AAI calculator from the [Kostas Lab](http://enve-omics.ce.gatech.edu/aai/) is an alternative solution.
+<b>Note</b>: There is a known issue with CompareM that can results in no homologs being identified when run on some Linux system. This is related to different implementations of 'sort'. Titus Brown has suggest a [solution](https://hackmd.io/L2llRUU_SrWfI4OYN-uozQ?view) that addresses this for Mac OS X. 
 
 CompareM is a software toolkit which supports performing large-scale comparative genomic analyses. It provides statistics across sets of genomes (e.g., amino acid identity) and for individual genomes (e.g., codon usage). Parallelized implementations are provided for computationally intensive tasks in order to allow scalability to thousands of genomes. Common workflows are provided as single methods to support easy adoption by users, and a more granular interface provided to allow experienced users to exploit specific functionality. CompareM is open source and released under the GNU General Public License (Version 3). 
 
