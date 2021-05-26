@@ -7,7 +7,7 @@
 [![Downloads](https://pepy.tech/badge/comparem/month)](https://pepy.tech/project/comparem/month)
 [![Bioconda](https://img.shields.io/conda/vn/bioconda/comparem.svg?color=43b02a)](https://anaconda.org/bioconda/comparem)
 
-<b>Unsupported</b>: Unfortunately, I no longer have time to continue support for CompareM. The [AAI calculator](http://enve-omics.ce.gatech.edu/aai/) as the Kostas Lab may meet your needs.
+<b>Unsupported</b>: Unfortunately, I no longer have time to continue support for CompareM. The [AAI calculator](http://enve-omics.ce.gatech.edu/aai/) at the Kostas Lab or the [EzAAI tool](http://leb.snu.ac.kr/ezaai) may meet your needs.
 
 <b>Note</b>: There is a known issue with CompareM that can results in no homologs being identified when run on some Linux system. This is related to different implementations of 'sort'. Titus Brown has suggest a [solution](https://hackmd.io/L2llRUU_SrWfI4OYN-uozQ?view) that addresses this for Mac OS X. The AAI calculator from the [Kostas Lab](http://enve-omics.ce.gatech.edu/aai/) is an alternative solution.
 
